@@ -1,113 +1,273 @@
-import Image from "next/image";
-import { Geist, Geist_Mono } from "next/font/google";
+"use client"
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+import { useEffect, useState } from "react"
+import { Badge } from "@/components/ui/badge"
+import { DataTable, DefaultRowActions, categoryFilterFn, multiColumnFilterFn, type RowAction } from "@/components/data-table/data-table"
+import type { ColumnDef } from "@tanstack/react-table"
+import { cn } from "@/lib/utils"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Edit, Trash, FileText, Copy, MoreVertical } from "lucide-react"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { toast } from "sonner"
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/pages/index.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+type User = {
+  id: string
+  name: string
+  email: string
+  location: string
+  flag: string
+  status: "Active" | "Inactive" | "Pending"
+  balance: number
+  department?: string
+  role?: string
+  joinDate?: string
+  performance?: "Excellent" | "Good" | "Average" | "Poor"
 }
+
+export default function UsersPage() {
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchUsers() {
+      try {
+        setLoading(true)
+        const res = await fetch("https://res.cloudinary.com/dlzlfasou/raw/upload/users-01_fertyx.json")
+        const data = await res.json()
+
+        // Add additional fields for the example
+        const enhancedData = data.map((user: User) => ({
+          ...user,
+          department: ["Sales", "Marketing", "Engineering", "Support"][Math.floor(Math.random() * 4)],
+          role: ["Director", "Manager", "Associate", "Specialist"][Math.floor(Math.random() * 4)],
+          joinDate: new Date(
+            2020 + Math.floor(Math.random() * 4),
+            Math.floor(Math.random() * 12),
+            Math.floor(Math.random() * 28) + 1,
+          ).toLocaleDateString(),
+          performance: ["Excellent", "Good", "Average", "Poor"][Math.floor(Math.random() * 4)],
+        }))
+
+        setUsers(enhancedData)
+      } catch (error) {
+        console.error("Failed to fetch users:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchUsers()
+  }, [])
+
+  const columns: ColumnDef<User>[] = [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox
+          checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")}
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Select row"
+        />
+      ),
+      size: 28,
+      enableSorting: false,
+      enableHiding: false,
+    },
+    {
+      header: "Name",
+      accessorKey: "name",
+      cell: ({ row }) => <div className="font-medium">{row.getValue("name")}</div>,
+      size: 180,
+      filterFn: multiColumnFilterFn,
+      enableHiding: false,
+    },
+    {
+      header: "Email",
+      accessorKey: "email",
+      size: 220,
+    },
+    {
+      header: "Location",
+      accessorKey: "location",
+      cell: ({ row }) => (
+        <div>
+          <span className="text-lg leading-none">{row.original.flag}</span> {row.getValue("location")}
+        </div>
+      ),
+      size: 180,
+    },
+    {
+      header: "Department",
+      accessorKey: "department",
+      size: 150,
+    },
+    {
+      header: "Role",
+      accessorKey: "role",
+      size: 150,
+    },
+    {
+      header: "Join Date",
+      accessorKey: "joinDate",
+      size: 120,
+    },
+    {
+      header: "Performance",
+      accessorKey: "performance",
+      cell: ({ row }) => {
+        const performance = row.getValue("performance") as string
+        let badgeClass = ""
+
+        switch (performance) {
+          case "Excellent":
+            badgeClass = "bg-green-600 text-white"
+            break
+          case "Good":
+            badgeClass = "bg-blue-600 text-white"
+            break
+          case "Average":
+            badgeClass = "bg-yellow-600 text-white"
+            break
+          case "Poor":
+            badgeClass = "bg-red-600 text-white"
+            break
+        }
+
+        return <Badge className={badgeClass}>{performance}</Badge>
+      },
+      size: 120,
+    },
+    {
+      header: "Status",
+      accessorKey: "status",
+      cell: ({ row }) => {
+        const status = row.getValue("status") as string
+        return (
+          <Badge
+            className={cn(
+              status === "Active" && "bg-green-600 text-white",
+              status === "Inactive" && "bg-muted-foreground/60 text-primary-foreground",
+              status === "Pending" && "bg-yellow-600 text-white",
+            )}
+          >
+            {status}
+          </Badge>
+        )
+      },
+      size: 100,
+      filterFn: categoryFilterFn,
+    },
+    {
+      header: "Balance",
+      accessorKey: "balance",
+      cell: ({ row }) => {
+        const amount = Number.parseFloat(row.getValue("balance"))
+        const formatted = new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+        }).format(amount)
+        return formatted
+      },
+      size: 120,
+    },
+    {
+      id: "actions",
+      header: () => <span className="sr-only">Actions</span>,
+      cell: ({ row }) => <DefaultRowActions row={row} />,
+      size: 60,
+      enableHiding: false,
+    },
+  ]
+
+  const handleDeleteUsers = (selectedUsers: User[]) => {
+    setUsers(users.filter((user) => !selectedUsers.some((selected) => selected.id === user.id)))
+  }
+
+  const handleAddUser = () => {
+    alert("Add user functionality would go here")
+  }
+
+  const rowActions: RowAction<User>[] = [
+    {
+      label: "View Details",
+      icon: <FileText className="h-4 w-4" />,
+      onClick: (user) => {
+        toast.info(`Viewing details for ${user.name}`);
+      }
+    },
+    {
+      label: "Edit User",
+      icon: <Edit className="h-4 w-4" />,
+      onClick: (user) => {
+        toast.info(`Editing ${user.name}`);
+      }
+    },
+    {
+      label: "Copy Info",
+      icon: <Copy className="h-4 w-4" />,
+      onClick: (user) => {
+        navigator.clipboard.writeText(JSON.stringify(user, null, 2));
+        toast.success(`Copied info for ${user.name}`);
+      }
+    },
+    {
+      label: "Delete",
+      icon: <Trash className="h-4 w-4 text-destructive" />,
+      onClick: (user) => {
+        setUsers(users.filter(u => u.id !== user.id));
+        toast.error(`Deleted ${user.name}`);
+      }
+    },
+  ];
+
+  const searchableColumns = [
+    { id: "name", label: "Name" },
+    { id: "email", label: "Email" },
+    { id: "location", label: "Location" },
+    { id: "department", label: "Department" },
+  ];
+
+  if (loading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Loading users...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="container p-10">
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Users</h1>
+          <p className="text-muted-foreground mt-2">Manage your users and their permissions.</p>
+        </div>
+        <ThemeToggle />
+      </div>
+
+      <DataTable
+        data={users}
+        columns={columns}
+        onDeleteRows={handleDeleteUsers}
+        onAddItem={handleAddUser}
+        addButtonText="Add New"
+        searchPlaceholder="Search..."
+        searchColumnId="name"
+        initialPageSize={5}
+        rowActions={rowActions}
+        searchableColumns={searchableColumns}
+      />
+    </div>
+  )
+}
+
