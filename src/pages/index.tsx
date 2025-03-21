@@ -6,7 +6,7 @@ import { DataTable, DefaultRowActions, categoryFilterFn, multiColumnFilterFn, ty
 import type { ColumnDef } from "@tanstack/react-table"
 import { cn } from "@/lib/utils"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Edit, Trash, FileText, Copy, MoreVertical } from "lucide-react"
+import { Edit, Trash, FileText, Copy } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { toast } from "sonner"
 
@@ -266,6 +266,7 @@ export default function UsersPage() {
         initialPageSize={5}
         rowActions={rowActions}
         searchableColumns={searchableColumns}
+        showColumnBorders={true}
       />
     </div>
   )

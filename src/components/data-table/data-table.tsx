@@ -1,4 +1,3 @@
-import React from "react"
 import { cn } from "@/lib/utils"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { TableToolbar } from "@/components/data-table/table-toolbar"
@@ -25,7 +24,7 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuPortal,
+
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
@@ -37,7 +36,18 @@ import { useMobile } from "@/hooks/use-mobile"
 import { MobileDataView } from "@/components/data-table/mobile-data-view"
 import { toast } from "sonner"
 
+import { type RowData } from "@tanstack/react-table";
+import React from "react"
 // Custom filter function for multi-column searching
+declare module "@tanstack/react-table" {
+  interface ColumnMeta<TData extends RowData, TValue> {
+      showBorder?: boolean;
+    }
+}
+const defaultActionColumn : ColumnDef<any> = {
+  id: "actions"
+}
+
 export const multiColumnFilterFn: FilterFn<any> = (row, columnId, filterValue) => {
   if (!filterValue) return true
   
@@ -128,7 +138,7 @@ export function DataTable<TData>({
     ],
   )
 
-  // When search column or value changes, update the column filters
+   // When search column or value changes, update the column filters
   React.useEffect(() => {
     if (selectedSearchColumn && searchValue) {
       setColumnFilters([{
@@ -143,6 +153,7 @@ export function DataTable<TData>({
   const table = useReactTable({
     data,
     columns,
+
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     onSortingChange: setSorting,
@@ -248,21 +259,21 @@ export function DataTable<TData>({
   // Generate default searchable columns if not provided
   const defaultSearchableColumns = React.useMemo(() => {
     if (searchableColumns && searchableColumns.length > 0) return searchableColumns;
-    
+
     return columns
-      .filter(column => 
-        column.id !== "select" && 
-        column.id !== "actions" && 
+      .filter(column =>
+        column.id !== "select" &&
+        column.id !== "actions" &&
         typeof column.accessorKey === "string"
       )
       .map(column => ({
         id: column.accessorKey as string || column.id,
-        label: typeof column.header === "string" 
-          ? column.header 
+        label: typeof column.header === "string"
+          ? column.header
           : column.accessorKey as string || column.id
       }));
   }, [columns, searchableColumns]);
-
+    
   return (
     <div className="space-y-4">
       {/* Table Toolbar */}
@@ -330,13 +341,13 @@ export function DataTable<TData>({
                   {headerGroup.headers.map((header) => {
                     return (
                       <TableHead 
-                        key={header.id} 
-                        style={{ width: `${header.getSize()}px` }} 
-                        className="h-11"
-                      >
+                        key={header.id}
+                        style={{ width: `${header.getSize()}px` }}
+                        className={cn("h-12", header.column.columnDef.meta?.cellClassName)}
+                     >
                         {header.isPlaceholder ? null : header.column.getCanSort() ? (
                           <div
-                            className={cn(
+                            className={cn(  
                               header.column.getCanSort() &&
                                 "flex h-full cursor-pointer items-center justify-between gap-2 select-none",
                             )}
@@ -388,61 +399,33 @@ export function DataTable<TData>({
                 table.getRowModel().rows.map((row) => (
                   <TableRow
                     key={row.id}
-                    data-state={row.getIsSelected() ? "selected" : ""}
-                    className={cn(
-                      "h-12 transition-all duration-200 ease-in-out", 
-                      row.getIsSelected() && "bg-muted/50"
-                    )}
-                  >
+                    className={cn("h-12 transition-colors", row.getIsSelected() ? "bg-muted/50" : "")}
+                    >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell 
-                        key={cell.id} 
+                        key={cell.id}
                         className={cn(
-                          "py-2 [&:has([role=checkbox])]:flex [&:has([role=checkbox])]:items-center [&:has([role=checkbox])]:justify-center",
-                          cell.column.id === "actions" && "w-10 p-0"
-                        )}
-                      >
-                        {cell.column.id === "actions" && rowActions ? (
-                          <div className="flex h-full items-center justify-center">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <MoreVertical className="h-4 w-4" />
-                                  <span className="sr-only">Open menu</span>
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-[160px]">
-                                <DropdownMenuGroup>
-                                  {rowActions.map((action, index) => (
-                                    <DropdownMenuItem
-                                      key={index}
-                                      onClick={() => {
-                                        action.onClick(row.original);
-                                        toast.info(`${action.label} action triggered`);
-                                      }}
-                                    >
-                                      {action.icon && <span className="mr-2">{action.icon}</span>}
-                                      {action.label}
-                                    </DropdownMenuItem>
-                                  ))}
-                                </DropdownMenuGroup>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        ) : (
-                          flexRender(cell.column.columnDef.cell, cell.getContext())
-                        )}
+                          "py-2", "[&>*:first-child]:flex [&>*:first-child]:items-center [&>*:first-child]:justify-center",
+                           cell.column.columnDef.meta?.cellClassName,
+                          cell.column.columnDef.meta?.showBorder && "border-x"
+                        )}>
+                      {
+                        flexRender(cell.column.columnDef.cell, cell.getContext())
+                      }
                       </TableCell>
                     ))}
+
                   </TableRow>
                 ))
-              ) : (
+              ) : ( 
                 <TableRow>
                   <TableCell colSpan={columns.length} className="h-24 text-center">
                     No results.
                   </TableCell>
                 </TableRow>
-              )}
+              )
+                
+              }
             </TableBody>
           </Table>
         </div>
