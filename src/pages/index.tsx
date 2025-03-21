@@ -236,7 +236,7 @@ export default function UsersPage() {
 
   if (loading) {
     return (
-      <div className="flex h-[50vh] items-center justify-center">
+      <div className="flex h-full items-center justify-center">
         <div className="text-center">
           <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
           <p className="mt-2 text-muted-foreground">Loading users...</p>
@@ -246,7 +246,7 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="container p-10">
+    <div className="p-4">
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Users</h1>
