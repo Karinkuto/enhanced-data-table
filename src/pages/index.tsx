@@ -191,7 +191,7 @@ export default function UsersPage() {
   }
 
   const handleAddUser = () => {
-    toast.success('New user added successfully!')
+    alert("Add user functionality would go here")
   }
 
   const rowActions: RowAction<User>[] = [
@@ -247,13 +247,7 @@ export default function UsersPage() {
 
   return (
     <div className="p-4">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Users</h1>
-          <p className="text-muted-foreground mt-2">Manage your users and their permissions.</p>
-        </div>
-        <ThemeToggle />
-      </div>
+      
 
       <DataTable
         data={users}
@@ -266,8 +260,8 @@ export default function UsersPage() {
         initialPageSize={5}
         rowActions={rowActions}
         searchableColumns={searchableColumns}
-        showColumnBorders={true}
       />
     </div>
   )
 }
+

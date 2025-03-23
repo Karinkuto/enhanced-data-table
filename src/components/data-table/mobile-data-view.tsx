@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect, useTransition } from "react"
 import type { Row } from "@tanstack/react-table"
-import { Check, ChevronDown, Loader, X } from "lucide-react"
+import { Check, ChevronDown, Loader, X, Copy, Edit, Trash } from "lucide-react"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableRow } from "@/components/ui/table"
@@ -33,7 +33,30 @@ export function MobileDataView<TData>({
   renderSubheader,
   renderDetailRows,
   onRowAction,
-  batchActions = [],
+  batchActions = [
+    {
+      label: "Copy",
+      icon: <Copy className="h-3.5 w-3.5" />,
+      onClick: (selectedIds) => {
+        const selectedRows = data.filter((row) => selectedIds.includes(row.id))
+        navigator.clipboard.writeText(JSON.stringify(selectedRows.map((row) => row.original), null, 2))
+        toast.info("Selected rows copied to clipboard", { position: "top-center" })
+      },
+    },
+    {
+      label: "Edit",
+      icon: <Edit className="h-3.5 w-3.5" />,
+      onClick: () => toast.info("Edit selected rows", { position: "top-center" }),
+    },
+    {
+      label: "Delete",
+      icon: <Trash className="h-3.5 w-3.5" />,
+      onClick: (selectedIds) => {
+        const selectedRows = data.filter((row) => selectedIds.includes(row.id))
+        toast.info(`Deleted ${selectedRows.length} ${selectedRows.length === 1 ? "row" : "rows"}`, { position: "top-center" })
+      },
+    },
+  ],
   emptyState,
 }: MobileDataViewProps<TData>) {
   const [expandedItems, setExpandedItems] = useState<string[]>([])
@@ -58,7 +81,7 @@ export function MobileDataView<TData>({
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape" && selectedItems.length > 0) {
         setSelectedItems([])
-        toast.info("Selection cleared")
+        toast.info("Selection cleared", { position: "top-center" })
       }
     }
 
@@ -140,12 +163,12 @@ export function MobileDataView<TData>({
 
   const selectAll = () => {
     setSelectedItems(data.map((row) => row.id))
-    toast.success("All items selected", { duration: 1500 })
+    toast.success("All items selected", { duration: 1500, position: "top-center" })
   }
 
   const deselectAll = () => {
     setSelectedItems([])
-    toast.info("Selection cleared", { duration: 1500 })
+    toast.info("Selection cleared", { duration: 1500, position: "top-center" })
   }
 
   const handleBatchAction = (action: MobileDataViewProps<TData>["batchActions"][0], index: number) => {
@@ -199,7 +222,7 @@ export function MobileDataView<TData>({
                         <TooltipTrigger asChild>
                           <Button variant="secondary" size="icon" className="size-7 border" onClick={selectAll}>
                             <Check className="size-3.5" aria-hidden="true" />
-                        </Button>
+                          </Button>
                         </TooltipTrigger>
                         <TooltipContent className="border bg-accent font-semibold text-foreground">
                           <p>Select all</p>

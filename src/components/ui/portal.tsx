@@ -2,25 +2,27 @@
 
 import * as React from "react"
 import * as ReactDOM from "react-dom"
+import { useRef } from "react"
+
 
 interface PortalProps extends React.PropsWithChildren {
   /**
    * Specify a container element.
    */
-  container?: HTMLElement
+  container?: HTMLDivElement
 }
 
 export const Portal: React.ForwardRefRenderFunction<HTMLDivElement, PortalProps> = (
   { children, container },
   forwardedRef,
 ) => {
-  const [el, setEl] = React.useState<HTMLElement | null>(null)
+  const [el, setEl] = React.useState<HTMLDivElement | null>(null)
 
   React.useEffect(() => {
     if (container) {
       setEl(container)
     } else {
-      setEl(document.createElement("div"))
+      setEl(document.createElement("div") as HTMLDivElement)
     }
   }, [container])
 

@@ -299,8 +299,7 @@ export function DataTable<TData>({
           renderHeader={renderHeader}
           renderSubheader={renderSubheader}
           renderDetailRows={renderDetailRows}
-          onRowAction={rowActions ? (row) => {} : undefined}
-          rowActions={rowActions ? (row) => (
+          onRowAction={rowActions ? (row) => (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
