@@ -1,7 +1,6 @@
-import { useRef } from "react"
-import type { Table } from "@tanstack/react-table"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import type { Table } from "@tanstack/react-table";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,25 +11,25 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { cn } from "@/lib/utils"
-import { CircleAlertIcon, ListFilterIcon, PlusIcon, TrashIcon } from "lucide-react"
-import { useMobile } from "@/hooks/use-mobile"
-import { toast } from "sonner"
-import { SearchCommand } from "./search-command"
-import { type SearchableColumn } from "./data-table"
+} from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
+import { CircleAlertIcon, ListFilterIcon, PlusIcon, TrashIcon } from "lucide-react";
+import { useMobile } from "@/hooks/use-mobile";
+import { toast } from "sonner";
+import { SearchCommand } from "./search-command";
+import type { SearchableColumn } from "./data-table";
 
 interface TableToolbarProps<TData> {
-  table: Table<TData>
-  searchColumnId?: string
-  onSearchColumnChange?: (column: string) => void
-  searchValue?: string
-  onSearchValueChange?: (value: string) => void
-  searchPlaceholder?: string
-  onAddItem?: () => void
-  onDeleteRows?: (rows: TData[]) => void
-  addButtonText?: string
-  searchableColumns?: SearchableColumn[]
+  table: Table<TData>;
+  searchColumnId?: string;
+  onSearchColumnChange?: (column: string) => void;
+  searchValue?: string;
+  onSearchValueChange?: (value: string) => void;
+  searchPlaceholder?: string;
+  onAddItem?: () => void;
+  onDeleteRows?: (rows: TData[]) => void;
+  addButtonText?: string;
+  searchableColumns?: SearchableColumn[];
 }
 
 export function TableToolbar<TData>({
@@ -45,47 +44,46 @@ export function TableToolbar<TData>({
   addButtonText = "Add item",
   searchableColumns = [],
 }: TableToolbarProps<TData>) {
-  const isMobile = useMobile()
+  const isMobile = useMobile();
+  const selectedRows = table.getSelectedRowModel().rows;
+  const selectedRowsCount = selectedRows.length;
 
   const handleDeleteRows = () => {
-    if (onDeleteRows) {
-      const selectedRows = table.getSelectedRowModel().rows.map((row) => row.original)
-      onDeleteRows(selectedRows)
-      table.resetRowSelection()
-      toast.success(`Deleted ${selectedRows.length} ${selectedRows.length === 1 ? "row" : "rows"}`);
-    }
-  }
+    if (!onDeleteRows) return;
+    const originals = selectedRows.map((row) => row.original);
+    onDeleteRows(originals);
+    table.resetRowSelection();
+    toast.success(
+      `Deleted ${originals.length} ${originals.length === 1 ? "row" : "rows"}`
+    );
+  };
 
   return (
     <Card className="mb-2 p-1">
       <CardContent className="p-1">
-        <div className={cn(
-          "flex gap-3", 
-          isMobile ? "flex-col" : "flex-row items-center"
-        )}>
-          {/* Search input with command */}
+        <div className={cn("flex gap-3", isMobile ? "flex-col" : "flex-row items-center")}>
+          {/* Search with command */}
           <div className={cn("flex-1", isMobile ? "w-full" : "")}>
-            {searchableColumns.length > 0 ? (
+            {searchableColumns.length > 0 && (
               <SearchCommand
                 columns={searchableColumns}
                 selectedColumn={searchColumnId}
-                onColumnChange={onSearchColumnChange || (() => {})}
+                onColumnChange={onSearchColumnChange ?? (() => {})}
                 searchValue={searchValue}
-                onSearchChange={onSearchValueChange || (() => {})}
+                onSearchChange={onSearchValueChange ?? (() => {})}
                 placeholder={searchPlaceholder}
               />
-            ) : null}
+            )}
           </div>
 
           <div className={cn("flex items-center gap-3", isMobile ? "justify-between w-full" : "")}>
             {/* Add button */}
             {onAddItem && (
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   onAddItem();
-                  toast.info("Adding new item");
-                }} 
+                }}
                 className="flex items-center gap-1"
               >
                 <PlusIcon className="h-4 w-4" aria-hidden="true" />
@@ -94,9 +92,9 @@ export function TableToolbar<TData>({
             )}
 
             <div className="flex items-center gap-2">
-              {/* Filter button (just UI, no functionality) */}
-              <Button 
-                variant="outline" 
+              {/* Filter button (UI only for now) */}
+              <Button
+                variant="outline"
                 className="flex items-center gap-1"
                 onClick={() => toast.info("Filter feature coming soon")}
               >
@@ -104,9 +102,9 @@ export function TableToolbar<TData>({
                 Filter
               </Button>
 
-              {/* Columns button (just UI, no functionality) */}
-              <Button 
-                variant="outline" 
+              {/* Columns button (UI only for now) */}
+              <Button
+                variant="outline"
                 className="flex items-center gap-1"
                 onClick={() => toast.info("Column management coming soon")}
               >
@@ -120,15 +118,15 @@ export function TableToolbar<TData>({
               </Button>
             </div>
 
-            {/* Delete button */}
-            {onDeleteRows && table.getSelectedRowModel().rows.length > 0 && (
+            {/* Delete button, visible when rows are selected */}
+            {onDeleteRows && selectedRowsCount > 0 && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button className="ml-auto flex items-center" variant="outline">
                     <TrashIcon className="h-4 w-4 mr-1 opacity-60" aria-hidden="true" />
                     Delete
                     <span className="bg-background text-muted-foreground/70 -mr-1 ml-1 inline-flex h-5 max-h-full items-center rounded border px-1 font-[inherit] text-[0.625rem] font-medium">
-                      {table.getSelectedRowModel().rows.length}
+                      {selectedRowsCount}
                     </span>
                   </Button>
                 </AlertDialogTrigger>
@@ -144,8 +142,7 @@ export function TableToolbar<TData>({
                       <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                       <AlertDialogDescription>
                         This action cannot be undone. This will permanently delete{" "}
-                        {table.getSelectedRowModel().rows.length} selected{" "}
-                        {table.getSelectedRowModel().rows.length === 1 ? "row" : "rows"}.
+                        {selectedRowsCount} selected {selectedRowsCount === 1 ? "row" : "rows"}.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                   </div>
@@ -160,6 +157,5 @@ export function TableToolbar<TData>({
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
-

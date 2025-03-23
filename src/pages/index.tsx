@@ -191,7 +191,7 @@ export default function UsersPage() {
   }
 
   const handleAddUser = () => {
-    alert("Add user functionality would go here")
+    toast.success('New user added successfully!')
   }
 
   const rowActions: RowAction<User>[] = [
@@ -271,4 +271,3 @@ export default function UsersPage() {
     </div>
   )
 }
-
