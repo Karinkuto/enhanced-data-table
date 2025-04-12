@@ -1,19 +1,8 @@
 import type { Table } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { CircleAlertIcon, ListFilterIcon, PlusIcon, TrashIcon } from "lucide-react";
+import { ListFilterIcon, PlusIcon } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { SearchCommand } from "./search-command";
@@ -56,18 +45,16 @@ interface TableToolbarProps<TData> {
 }
 
 export function TableToolbar<TData>({
-  table,
   searchColumnId = "all",
   onSearchColumnChange,
   searchValue = "",
   onSearchValueChange,
   searchPlaceholder = "Search...",
   onAddItem,
-  onDeleteRows,
   addButtonText = "Add item",
   searchableColumns = [],
   showColumnSelection = true,
-}: TableToolbarProps<TData>) {
+}: Omit<TableToolbarProps<TData>, "table" | "onDeleteRows">) {
   const isMobile = useIsMobile();
 
   return (

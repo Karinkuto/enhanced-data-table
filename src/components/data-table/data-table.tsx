@@ -10,7 +10,7 @@ import {
   type Row,
   type SortingState,
   type VisibilityState,
-  flexRender, type RowData,
+  flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
@@ -18,7 +18,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 import { ChevronDownIcon, ChevronUpIcon, MoreVertical, FileDownIcon, UserPlusIcon, UserMinusIcon } from "lucide-react"
-import { useId, useState, useEffect, useTransition } from "react"
+import { useState, useEffect, useTransition } from "react"
 import {
   DropdownMenu,  
   DropdownMenuContent,
@@ -34,20 +34,16 @@ import { Button } from "@/components/ui/button"
 import { MobileDataView, } from "@/components/data-table/mobile-data-view"
 import { toast } from "sonner"
 import React, { useMemo } from "react"
-import { Copy, Edit, Trash } from "lucide-react"
+import { Trash } from "lucide-react"
 import { fuzzyFilter } from "@/lib/fuzzy-filter"
 import { FloatingSelectionController } from "./floating-selection-controller"
 
 // Custom filter function for multi-column searching
 declare module "@tanstack/react-table" {
-  interface ColumnMeta<TData extends RowData, TValue> {
+  interface ColumnMeta {
     cellClassName?: string;
     showBorder?: boolean;
   }
-}
-
-const defaultActionColumn: ColumnDef<unknown> = {
-  id: "actions"
 }
 
 export const multiColumnFilterFn: FilterFn<unknown> = (row, columnId, filterValue) => {
@@ -126,15 +122,6 @@ export interface DataTableProps<TData> {
   mobileViewConfig?: MobileViewConfig
   // Custom batch actions for mobile view
   mobileBatchActions?: BatchAction<TData>[]
-  // Table toolbar customization
-  tableToolbarProps?: {
-    onFilter?: () => void;
-    onManageColumns?: () => void;
-    filterText?: string;
-    columnsText?: string;
-    showFilterButton?: boolean;
-    showColumnsButton?: boolean;
-  }
 }
 
 // Create a type for the cell to avoid 'any' type
@@ -177,10 +164,8 @@ export function DataTable<TData>({
   searchableColumns,
   mobileViewConfig,
   mobileBatchActions,
-  tableToolbarProps,
 }: DataTableProps<TData>) {
 
-  const id = useId()
   const isMobile = useIsMobile()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const defaultSorting = initialSorting ?? (columns.length > 0 && columns[0].id ? [{
@@ -381,7 +366,7 @@ export function DataTable<TData>({
     {
       label: "Export",
       icon: <FileDownIcon className="h-3.5 w-3.5" />,
-      onClick: (selectedIds: string[]) => {
+      onClick: () => {
         const selectedRows = table.getSelectedRowModel().rows.map(row => row.original);
         navigator.clipboard.writeText(JSON.stringify(selectedRows, null, 2));
         toast.info("Selected rows copied to clipboard");
@@ -425,9 +410,8 @@ export function DataTable<TData>({
     ? mobileBatchActions.map(action => ({
         label: action.label,
         icon: action.icon,
-        onClick: (selectedIds: string[]) => {
+        onClick: () => {
           const selectedRows = table.getSelectedRowModel().rows
-            .filter(row => selectedIds.includes(row.id))
             .map(row => row.original);
           return action.onClick(selectedRows);
         },
@@ -441,7 +425,7 @@ export function DataTable<TData>({
     icon: React.ReactNode
     onClick: (selectedIds: string[]) => Promise<void> | void 
     hotkey?: string
-  }, index: number) => {
+  }) => {
     setCurrentAction(action.label)
     startTransition(async () => {
       try {

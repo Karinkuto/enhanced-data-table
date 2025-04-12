@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Check, Loader, X, FileDownIcon, UserPlusIcon, UserMinusIcon } from "lucide-react"
+import { Check, Loader, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 
-export interface FloatingSelectionControllerProps<TData> {
+export interface FloatingSelectionControllerProps {
   selectedItems: string[]
   allItemIds: string[]
   onSelectAll: () => void
@@ -41,7 +41,7 @@ export interface FloatingSelectionControllerProps<TData> {
   className?: string
 }
 
-export function FloatingSelectionController<TData>({
+export function FloatingSelectionController({
   selectedItems,
   allItemIds,
   onSelectAll,
@@ -53,7 +53,7 @@ export function FloatingSelectionController<TData>({
   displayMode = "compact",
   position = "fixed",
   className
-}: FloatingSelectionControllerProps<TData>) {
+}: FloatingSelectionControllerProps) {
   const [mounted, setMounted] = React.useState(false)
 
   // Handle mounting for SSR compatibility

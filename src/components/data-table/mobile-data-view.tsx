@@ -1,16 +1,14 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useTransition } from "react"
+import { useState, useEffect } from "react"
 import type { Row, Table } from "@tanstack/react-table"
-import { Check, ChevronDown, Loader, X, Copy, Edit, Trash } from "lucide-react"
+import { Check, ChevronDown } from "lucide-react"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Button } from "@/components/ui/button"
 import { Table as UITable, TableBody, TableRow } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
-import { Separator } from "@/components/ui/separator"
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
+import { TooltipProvider } from "@/components/ui/tooltip"
 
 interface MobileDataViewProps<TData> {
   data: Row<TData>[]
@@ -34,7 +32,6 @@ export function MobileDataView<TData>({
   renderSubheader,
   renderDetailRows,
   onRowAction,
-  batchActions,
   emptyState,
   table,
 }: MobileDataViewProps<TData>) {
@@ -163,7 +160,7 @@ export function MobileDataView<TData>({
                 onTouchEnd={handleTouchEnd}
                 data-selected={isSelected ? "true" : "false"}
                 aria-selected={isSelected}
-                onClick={(e) => {
+                onClick={() => {
                   if (!isSelectionMode) {
                     handleAccordionChange(isExpanded ? undefined : row.id)
                   }
@@ -171,9 +168,8 @@ export function MobileDataView<TData>({
               >
                 <div
                   className="relative px-6 py-4"
-                  onClick={(e) => {
+                  onClick={() => {
                     if (isSelectionMode) {
-                      e.stopPropagation()
                       handleRowClick(row.id)
                     }
                   }}
@@ -219,8 +215,7 @@ export function MobileDataView<TData>({
                   <div className="absolute bottom-2 right-2">
                     <ChevronDown
                       className={cn("h-4 w-4 shrink-0 transition-transform duration-300 ease-in-out", isExpanded && "rotate-180")}
-                      onClick={(e) => {
-                        e.stopPropagation()
+                      onClick={() => {
                         handleAccordionChange(isExpanded ? undefined : row.id)
                       }}
                       onKeyDown={(e) => {
@@ -238,8 +233,7 @@ export function MobileDataView<TData>({
 
                 <AccordionTrigger
                   className="sr-only"
-                  onClick={(e) => {
-                    e.preventDefault()
+                  onClick={() => {
                     if (!isSelectionMode) {
                       handleAccordionChange(isExpanded ? undefined : row.id)
                     }

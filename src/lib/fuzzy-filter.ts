@@ -1,4 +1,4 @@
-import { FilterFn } from "@tanstack/react-table"
+import type { FilterFn } from "@tanstack/react-table"
 import { rankItem, type RankingInfo } from "@tanstack/match-sorter-utils"
 
 // Declare module extensions
@@ -29,7 +29,7 @@ export const fuzzyFilter: FilterFn<unknown> = (row, columnId, value, addMeta) =>
                 typeof val === 'boolean') &&
                !['id', 'select', 'actions'].includes(key);
       })
-      .map(([_, val]) => String(val).toLowerCase());
+      .map(([, val]) => String(val).toLowerCase());
     
     // Convert search value to lowercase
     const searchValue = String(value).toLowerCase();
