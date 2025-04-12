@@ -45,6 +45,8 @@ interface TableToolbarProps<TData> {
 }
 
 export function TableToolbar<TData>({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  table,
   searchColumnId = "all",
   onSearchColumnChange,
   searchValue = "",
@@ -54,7 +56,7 @@ export function TableToolbar<TData>({
   addButtonText = "Add item",
   searchableColumns = [],
   showColumnSelection = true,
-}: Omit<TableToolbarProps<TData>, "table" | "onDeleteRows">) {
+}: TableToolbarProps<TData>) {
   const isMobile = useIsMobile();
 
   return (

@@ -38,42 +38,60 @@ import { Trash } from "lucide-react"
 import { fuzzyFilter } from "@/lib/fuzzy-filter"
 import { FloatingSelectionController } from "./floating-selection-controller"
 
-// Custom filter function for multi-column searching
+// Extend the ColumnMeta interface with our additional properties
 declare module "@tanstack/react-table" {
-  interface ColumnMeta {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData, TValue> {
     cellClassName?: string;
     showBorder?: boolean;
   }
 }
 
-export const multiColumnFilterFn: FilterFn<unknown> = (row, columnId, filterValue) => {
-  if (!filterValue) return true
-  
-  // If searching all columns
-  if (columnId === "all") {
-    const searchableRowContent = Object.values(row.original)
-      .filter((val) => typeof val === "string")
-      .join(" ") 
-      .toLowerCase()
-    const searchTerm = (filterValue ?? "").toLowerCase()
-    return searchableRowContent.includes(searchTerm)
+// Define custom filter functions
+declare module "@tanstack/react-table" {
+  interface FilterFns {
+    multiColumn: FilterFn<unknown>
+    category: FilterFn<unknown>
   }
-
-  // If searching a specific column 
-  const value = row.getValue(columnId) as string
-  if (typeof value === "string") {
-    return value.toLowerCase().includes((filterValue ?? "").toLowerCase())
-  }
-  
-  return false
 }
 
-// Filter function for status or any categorical field
-export const categoryFilterFn: FilterFn<unknown> = (row, columnId, filterValue: string[]) => {
-  if (!filterValue?.length) return true
-  const value = row.getValue(columnId) as string
-  return filterValue.includes(value)
+// Create a generic multi-column filter
+export function createMultiColumnFilterFn<T>(): FilterFn<T> {
+  return (row, columnId, filterValue) => {
+    if (!filterValue) return true
+    
+    // If searching all columns
+    if (columnId === "all") {
+      const searchableRowContent = Object.values(row.original as Record<string, unknown>)
+        .filter((val) => typeof val === "string")
+        .join(" ") 
+        .toLowerCase()
+      const searchTerm = (filterValue ?? "").toLowerCase()
+      return searchableRowContent.includes(searchTerm)
+    }
+
+    // If searching a specific column 
+    const value = row.getValue(columnId) as string
+    if (typeof value === "string") {
+      return value.toLowerCase().includes((filterValue ?? "").toLowerCase())
+    }
+    
+    return false
+  }
 }
+
+// Create a generic category filter
+export function createCategoryFilterFn<T>(): FilterFn<T> {
+  return (row, columnId, filterValue: string[]) => {
+    if (!filterValue?.length) return true
+    const value = row.getValue(columnId) as string
+    return filterValue.includes(value)
+  }
+}
+
+// For backward compatibility
+export const multiColumnFilterFn = createMultiColumnFilterFn<unknown>()
+export const categoryFilterFn = createCategoryFilterFn<unknown>()
 
 // Row action type for kebab menu
 export interface RowAction<TData> {
@@ -215,9 +233,14 @@ export function DataTable<TData>({
     }
   }, [isMobile, selectedSearchColumn])
 
-  const table = useReactTable({
+  // Use a typed version of the fuzzy filter for this component
+  const typedFuzzyFilter: FilterFn<TData> = (row, columnId, value, addMeta) => {
+    return fuzzyFilter(row, columnId, value, addMeta);
+  };
+
+  const table = useReactTable<TData>({
     data, 
-    columns, 
+    columns: columns as ColumnDef<TData, unknown>[], 
     
     getCoreRowModel: getCoreRowModel(), 
     getSortedRowModel: getSortedRowModel(),
@@ -230,11 +253,11 @@ export function DataTable<TData>({
     onColumnVisibilityChange: setColumnVisibility,
     getFilteredRowModel: getFilteredRowModel(),
     filterFns: {
-      multiColumn: multiColumnFilterFn,
-      category: categoryFilterFn,
-      fuzzy: fuzzyFilter,
+      multiColumn: multiColumnFilterFn as FilterFn<TData>,
+      category: categoryFilterFn as FilterFn<TData>,
+      fuzzy: typedFuzzyFilter,
     },
-    globalFilterFn: fuzzyFilter,
+    globalFilterFn: typedFuzzyFilter,
     state: { 
       sorting,
       pagination, 
@@ -699,23 +722,31 @@ export interface DefaultRowActionsProps<TData> {
 
 export function DefaultRowActions<TData>({
   row,
-  onCopy = (row) => {
-    navigator.clipboard.writeText(JSON.stringify(row, null, 2));
+  onCopy = (
+    _data
+  ) => {
+    navigator.clipboard.writeText(JSON.stringify(_data, null, 2));
     toast.info("Row data copied to clipboard");
     // Clear selection after action
     if (row.getIsSelected()) {
       row.toggleSelected(false);
     }
   },
-  onEdit = (row) => {
+  onEdit = (
+    _data
+  ) => {
     toast.info("Edit row");
+    console.log("Editing data:", _data);
     // Clear selection after action
     if (row.getIsSelected()) {
       row.toggleSelected(false);
     }
   },
-  onDelete = (row) => {
+  onDelete = (
+    _data
+  ) => {
     toast.info("Delete row");
+    console.log("Deleting data:", _data);
     // Clear selection after action
     if (row.getIsSelected()) {
       row.toggleSelected(false);

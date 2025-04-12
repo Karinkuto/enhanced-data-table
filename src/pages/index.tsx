@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
-import { DataTable, DefaultRowActions, categoryFilterFn, multiColumnFilterFn, type RowAction, type BatchAction } from "@/components/data-table/data-table"
+import { DataTable, DefaultRowActions, createCategoryFilterFn, createMultiColumnFilterFn, type RowAction, type BatchAction } from "@/components/data-table/data-table"
 import type { ColumnDef } from "@tanstack/react-table"
 import { cn } from "@/lib/utils"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -85,7 +85,7 @@ export default function UsersPage() {
       accessorKey: "name",
       cell: ({ row }) => <div className="font-medium">{row.getValue("name")}</div>,
       size: 180,
-      filterFn: multiColumnFilterFn,
+      filterFn: createMultiColumnFilterFn<User>(),
       enableHiding: false,
     },
     {
@@ -162,7 +162,7 @@ export default function UsersPage() {
         )
       },
       size: 100,
-      filterFn: categoryFilterFn,
+      filterFn: createCategoryFilterFn<User>(),
     },
     {
       header: "Balance",

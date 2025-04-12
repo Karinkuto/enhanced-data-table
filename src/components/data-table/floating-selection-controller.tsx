@@ -232,9 +232,12 @@ export function FloatingSelectionController({
                         {isPending && currentAction === action.label ? (
                           <Loader className="size-3.5 animate-spin mr-1.5" aria-hidden="true" />
                         ) : (
-                          React.cloneElement(action.icon as React.ReactElement, { 
-                            className: "size-3.5 mr-1.5"
-                          })
+                          // Make sure the icon is a valid ReactElement before cloning
+                          React.isValidElement(action.icon) ? 
+                            React.cloneElement(action.icon, { 
+                              className: "size-3.5 mr-1.5" 
+                            } as React.HTMLAttributes<HTMLElement>) : 
+                            <span className="size-3.5 mr-1.5">{action.icon}</span>
                         )}
                         <span>{action.label}</span>
                       </Button>
@@ -260,9 +263,12 @@ export function FloatingSelectionController({
                         {isPending && currentAction === action.label ? (
                           <Loader className="size-4 animate-spin" aria-hidden="true" />
                         ) : (
-                          React.cloneElement(action.icon as React.ReactElement, { 
-                            className: "size-4"
-                          })
+                          // Make sure the icon is a valid ReactElement before cloning
+                          React.isValidElement(action.icon) ? 
+                            React.cloneElement(action.icon, { 
+                              className: "size-4" 
+                            } as React.HTMLAttributes<HTMLElement>) : 
+                            <span className="size-4">{action.icon}</span>
                         )}
                       </Button>
                     </TooltipTrigger>
