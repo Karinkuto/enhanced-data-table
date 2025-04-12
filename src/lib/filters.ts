@@ -1,4 +1,4 @@
-import '@tanstack/table-core'
+import type { FilterFn } from '@tanstack/table-core'
 import type { AccessorFn, Column, Row } from '@tanstack/react-table'
 import type { ColumnMeta, Table } from '@tanstack/react-table'
 import {
