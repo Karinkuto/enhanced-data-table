@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
-import { DataTable, DefaultRowActions, categoryFilterFn, multiColumnFilterFn, type RowAction } from "@/components/data-table/data-table"
+import { DataTable, DefaultRowActions, categoryFilterFn, multiColumnFilterFn, type RowAction, type BatchAction } from "@/components/data-table/data-table"
 import type { ColumnDef } from "@tanstack/react-table"
 import { cn } from "@/lib/utils"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Edit, Trash, FileText, Copy } from "lucide-react"
+import { Edit, Trash, FileText, Copy, Filter, Columns, RefreshCcw, FileDown, CheckSquare, UserX } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { toast } from "sonner"
 
@@ -27,6 +27,8 @@ type User = {
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [columnsModalOpen, setColumnsModalOpen] = useState(false);
 
   useEffect(() => {
     async function fetchUsers() {
@@ -191,7 +193,7 @@ export default function UsersPage() {
   }
 
   const handleAddUser = () => {
-    alert("Add user functionality would go here")
+    toast.success("Add user functionality would go here")
   }
 
   const rowActions: RowAction<User>[] = [
@@ -234,11 +236,100 @@ export default function UsersPage() {
     { id: "department", label: "Department" },
   ];
 
+  // Define mobile batch actions with custom icons, labels and functionality
+  const mobileBatchActions: BatchAction<User>[] = [
+    {
+      label: "Export to CSV",
+      icon: <FileDown className="h-4 w-4" />,
+      onClick: (selectedUsers) => {
+        // Convert selected users to CSV format
+        const headers = "Name,Email,Location,Status,Balance\n";
+        const csv = selectedUsers.map(user => 
+          `${user.name},${user.email},${user.location},${user.status},${user.balance}`
+        ).join("\n");
+        
+        // Create and download file
+        const blob = new Blob([headers + csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'exported-users.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        toast.success(`Exported ${selectedUsers.length} users to CSV`);
+      }
+    },
+    {
+      label: "Activate Users",
+      icon: <CheckSquare className="h-4 w-4" />,
+      onClick: (selectedUsers) => {
+        // Update status of selected users
+        setUsers(users.map(user => 
+          selectedUsers.some(selected => selected.id === user.id)
+            ? { ...user, status: "Active" }
+            : user
+        ));
+        toast.success(`Activated ${selectedUsers.length} users`);
+      }
+    },
+    {
+      label: "Deactivate Users",
+      icon: <UserX className="h-4 w-4" />,
+      onClick: (selectedUsers) => {
+        // Update status of selected users
+        setUsers(users.map(user => 
+          selectedUsers.some(selected => selected.id === user.id)
+            ? { ...user, status: "Inactive" }
+            : user
+        ));
+        toast.success(`Deactivated ${selectedUsers.length} users`);
+      }
+    },
+    {
+      label: "Delete Selected",
+      icon: <Trash className="h-4 w-4 text-destructive" />,
+      onClick: (selectedUsers) => {
+        setUsers(users.filter(user => 
+          !selectedUsers.some(selected => selected.id === user.id)
+        ));
+        toast.error(`Deleted ${selectedUsers.length} users`);
+      }
+    }
+  ];
+
+  // Define custom handlers for filter and column management
+  const handleFilterClick = () => {
+    setFilterModalOpen(true);
+    toast.info("Filter dialog would open here");
+    // Implementation would open a custom filter UI
+  };
+
+  const handleColumnsClick = () => {
+    setColumnsModalOpen(true);
+    toast.info("Column management dialog would open here");
+    // Implementation would open column visibility controls
+  };
+
+  // Configure mobile view layout
+  const mobileViewConfig = {
+    headerColumnId: "name",
+    subheaderColumnIds: ["email", "role", "status"],
+    excludeFromDetailColumns: ["name", "email", "select", "actions"],
+    columnLabels: {
+      "performance": "Performance Rating",
+      "joinDate": "Started On",
+      "balance": "Account Balance",
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
           <p className="mt-2 text-muted-foreground">Loading users...</p>
         </div>
       </div>
@@ -247,7 +338,14 @@ export default function UsersPage() {
 
   return (
     <div className="p-4">
-      
+      <div className="flex justify-between items-center mb-4">
+        <div>
+          {/* You can add a title or other content here if needed */}
+        </div>
+        <div className="flex justify-end">
+          <ThemeToggle />
+        </div>
+      </div>
 
       <DataTable
         data={users}
@@ -255,13 +353,22 @@ export default function UsersPage() {
         onDeleteRows={handleDeleteUsers}
         onAddItem={handleAddUser}
         addButtonText="Add New"
-        searchPlaceholder="Search..."
+        searchPlaceholder="Search users..."
         searchColumnId="name"
         initialPageSize={5}
         rowActions={rowActions}
         searchableColumns={searchableColumns}
+        mobileViewConfig={mobileViewConfig}
+        mobileBatchActions={mobileBatchActions}
+        tableToolbarProps={{
+          onFilter: handleFilterClick,
+          onManageColumns: handleColumnsClick,
+          filterText: "Filters",
+          columnsText: "Columns",
+          showFilterButton: true,
+          showColumnsButton: true,
+        }}
       />
     </div>
   )
 }
-

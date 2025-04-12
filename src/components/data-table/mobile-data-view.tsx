@@ -9,9 +9,9 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableRow } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
-import { Portal } from "@/components/ui/portal"
 import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
+import { FloatingSelectionController } from "./floating-selection-controller"
 
 interface MobileDataViewProps<TData> {
   data: Row<TData>[]
@@ -33,33 +33,10 @@ export function MobileDataView<TData>({
   renderSubheader,
   renderDetailRows,
   onRowAction,
-  batchActions = [
-    {
-      label: "Copy",
-      icon: <Copy className="h-3.5 w-3.5" />,
-      onClick: (selectedIds) => {
-        const selectedRows = data.filter((row) => selectedIds.includes(row.id))
-        navigator.clipboard.writeText(JSON.stringify(selectedRows.map((row) => row.original), null, 2))
-        toast.info("Selected rows copied to clipboard", { position: "top-center" })
-      },
-    },
-    {
-      label: "Edit",
-      icon: <Edit className="h-3.5 w-3.5" />,
-      onClick: () => toast.info("Edit selected rows", { position: "top-center" }),
-    },
-    {
-      label: "Delete",
-      icon: <Trash className="h-3.5 w-3.5" />,
-      onClick: (selectedIds) => {
-        const selectedRows = data.filter((row) => selectedIds.includes(row.id))
-        toast.info(`Deleted ${selectedRows.length} ${selectedRows.length === 1 ? "row" : "rows"}`, { position: "top-center" })
-      },
-    },
-  ],
+  batchActions,
   emptyState,
 }: MobileDataViewProps<TData>) {
-  const [expandedItems, setExpandedItems] = useState<string[]>([])
+  const [expandedItem, setExpandedItem] = useState<string | undefined>(undefined)
   const [selectedItems, setSelectedItems] = useState<string[]>([])
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null)
   const [touchPosition, setTouchPosition] = useState<{ x: number; y: number } | null>(null)
@@ -67,7 +44,6 @@ export function MobileDataView<TData>({
   const [isPending, startTransition] = useTransition()
   const [currentAction, setCurrentAction] = useState<string | null>(null)
 
-  // Reset selection mode when there are no selected items
   useEffect(() => {
     if (selectedItems.length === 0 && isSelectionMode) {
       setIsSelectionMode(false)
@@ -76,7 +52,6 @@ export function MobileDataView<TData>({
     }
   }, [selectedItems, isSelectionMode])
 
-  // Clear selection on Escape key press
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape" && selectedItems.length > 0) {
@@ -89,38 +64,26 @@ export function MobileDataView<TData>({
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [selectedItems])
 
-  const handleAccordionChange = (value: string) => {
-    // Don't toggle accordion in selection mode to avoid confusion
+  const handleAccordionChange = (value: string | undefined) => {
     if (isSelectionMode) return
-
-    setExpandedItems((prev) => (prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]))
+    setExpandedItem(value)
   }
 
   const handleTouchStart = (e: React.TouchEvent, rowId: string) => {
-    // If already in selection mode, don't use long press
     if (isSelectionMode) return
-
     const touch = e.touches[0]
     setTouchPosition({ x: touch.clientX, y: touch.clientY })
-
     const timer = setTimeout(() => {
-      // Only select if the user hasn't moved significantly
-      if (touchPosition) {
-        toggleRowSelection(rowId)
-      }
-    }, 300) // Reduced to 300ms for better responsiveness
-
+      if (touchPosition) toggleRowSelection(rowId)
+    }, 300)
     setLongPressTimer(timer)
   }
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!touchPosition || isSelectionMode) return
-
     const touch = e.touches[0]
     const deltaX = Math.abs(touch.clientX - touchPosition.x)
     const deltaY = Math.abs(touch.clientY - touchPosition.y)
-
-    // If user has moved significantly, cancel long press
     if (deltaX > 10 || deltaY > 10) {
       if (longPressTimer) {
         clearTimeout(longPressTimer)
@@ -142,12 +105,13 @@ export function MobileDataView<TData>({
     setSelectedItems((prev) => {
       const isSelected = prev.includes(rowId)
       const newSelection = isSelected ? prev.filter((id) => id !== rowId) : [...prev, rowId]
-
-      // Provide haptic feedback if available
-      if (navigator.vibrate) {
-        navigator.vibrate(50)
+      if (navigator.vibrate) navigator.vibrate(50)
+      
+      // Close accordion if selecting a row
+      if (!isSelected) {
+        setExpandedItem(undefined)
       }
-
+      
       return newSelection
     })
   }
@@ -171,9 +135,12 @@ export function MobileDataView<TData>({
     toast.info("Selection cleared", { duration: 1500, position: "top-center" })
   }
 
-  const handleBatchAction = (action: MobileDataViewProps<TData>["batchActions"][0], index: number) => {
+  const handleBatchAction = (action: { 
+    label: string
+    icon: React.ReactNode
+    onClick: (selectedIds: string[]) => Promise<void> | void 
+  }, index: number) => {
     setCurrentAction(action.label)
-
     startTransition(async () => {
       try {
         await action.onClick(selectedItems)
@@ -193,84 +160,37 @@ export function MobileDataView<TData>({
   return (
     <TooltipProvider>
       <div className="space-y-2">
-        {isSelectionMode && (
-          <Portal>
-            <div className="fixed inset-x-0 bottom-6 z-50 mx-auto w-fit px-2.5">
-              <div className="w-full overflow-x-auto">
-                <div className="mx-auto flex w-fit items-center gap-2 rounded-md border bg-background p-2 text-foreground shadow-sm">
-                  <div className="flex h-7 items-center rounded-md border border-dashed pr-1 pl-2.5">
-                    <span className="whitespace-nowrap text-xs">{selectedItems.length} selected</span>
-                    <Separator orientation="vertical" className="mr-1 ml-2" />
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="size-5 hover:border" onClick={deselectAll}>
-                          <X className="size-3.5 shrink-0" aria-hidden="true" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent className="flex items-center border bg-accent px-2 py-1 font-semibold text-foreground">
-                        <p className="mr-2">Clear selection</p>
-                        <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                          Esc
-                        </kbd>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                  <Separator orientation="vertical" className="hidden h-5 sm:block" />
-                  <div className="flex items-center gap-1.5">
-                    {selectedItems.length < data.length && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button variant="secondary" size="icon" className="size-7 border" onClick={selectAll}>
-                            <Check className="size-3.5" aria-hidden="true" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent className="border bg-accent font-semibold text-foreground">
-                          <p>Select all</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-
-                    {batchActions.map((action, index) => (
-                      <Tooltip key={index}>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="secondary"
-                            size="icon"
-                            className="size-7 border"
-                            onClick={() => handleBatchAction(action, index)}
-                            disabled={isPending}
-                          >
-                            {isPending && currentAction === action.label ? (
-                              <Loader className="size-3.5 animate-spin" aria-hidden="true" />
-                            ) : (
-                              action.icon
-                            )}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent className="border bg-accent font-semibold text-foreground">
-                          <p>{action.label}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Portal>
+        {isSelectionMode && batchActions && batchActions.length > 0 && (
+          <FloatingSelectionController
+            selectedItems={selectedItems}
+            allItemIds={data.map(row => row.id)}
+            onSelectAll={selectAll}
+            onDeselectAll={deselectAll}
+            batchActions={batchActions}
+            currentAction={currentAction}
+            isPending={isPending}
+            onBatchAction={handleBatchAction}
+          />
         )}
 
-        <Accordion type="multiple" value={expandedItems} onValueChange={setExpandedItems} className="space-y-2">
+        <Accordion 
+          type="single" 
+          value={expandedItem} 
+          onValueChange={handleAccordionChange} 
+          className="space-y-2"
+          collapsible
+        >
           {data.map((row) => {
             const isSelected = selectedItems.includes(row.id)
-            const isExpanded = expandedItems.includes(row.id)
+            const isExpanded = expandedItem === row.id
 
             return (
               <AccordionItem
                 key={row.id}
                 value={row.id}
                 className={cn(
-                  "rounded-md border overflow-hidden bg-card mb-2 relative transition-all duration-200 data-[state=open]:bg-muted/30",
-                  isSelected && "border-primary ring-1 ring-primary bg-primary/5",
+                  "bg-card text-card-foreground rounded-xl border shadow-sm overflow-hidden mb-2 relative transition-all duration-500 ease-in-out data-[state=open]:bg-muted/10 last:border-b",
+                  isSelected && "border-primary/70 ring-2 ring-primary/30 bg-primary/5",
                   !isSelectionMode && "hover:bg-muted/40",
                 )}
                 onTouchStart={(e) => handleTouchStart(e, row.id)}
@@ -280,36 +200,73 @@ export function MobileDataView<TData>({
                 aria-selected={isSelected}
                 onClick={(e) => {
                   if (!isSelectionMode) {
-                    handleAccordionChange(row.id)
+                    handleAccordionChange(isExpanded ? undefined : row.id)
                   }
                 }}
               >
                 <div
-                  className="relative px-4 pt-3 pb-2"
+                  className="relative px-6 py-4"
                   onClick={(e) => {
                     if (isSelectionMode) {
                       e.stopPropagation()
                       handleRowClick(row.id)
                     }
                   }}
+                  onKeyDown={(e) => {
+                    if (isSelectionMode && (e.key === 'Enter' || e.key === ' ')) {
+                      e.stopPropagation();
+                      handleRowClick(row.id);
+                    }
+                  }}
+                  tabIndex={isSelectionMode ? 0 : -1}
+                  aria-label={isSelectionMode ? "Toggle row selection" : undefined}
                 >
-                  {isSelected && (
-                    <div className="absolute left-2 top-1/2 -translate-y-1/2 h-5 w-5 bg-primary rounded-full flex items-center justify-center animate-in fade-in zoom-in duration-200">
-                      <Check className="h-3 w-3 text-primary-foreground" />
-                    </div>
-                  )}
-
-                  <div className={cn("flex flex-col items-start text-left w-full", isSelected && "pl-6")}>
-                    <div className="font-medium text-base w-full">{renderHeader(row)}</div>
-                    <div className="text-muted-foreground text-sm">{renderSubheader(row)}</div>
+                  <div 
+                    className={cn(
+                      "absolute left-2 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full flex items-center justify-center transition-all duration-300 ease-out",
+                      isSelected ? 
+                        "bg-primary scale-100 opacity-100 shadow-sm shadow-primary/20" : 
+                        "bg-transparent scale-75 opacity-0"
+                    )}
+                  >
+                    <Check 
+                      className={cn(
+                        "h-3 w-3 transition-all duration-300",
+                        isSelected ? "text-primary-foreground opacity-100" : "opacity-0"
+                      )} 
+                    />
                   </div>
 
-                  <div className="absolute bottom-2 right-4">
+                  <div className={cn(
+                    "flex flex-col items-start text-left w-full overflow-hidden transition-all duration-300",
+                    isSelected ? "pl-6" : "pl-0"
+                  )}>
+                    <div className="flex justify-between w-full overflow-hidden">
+                      <div className="font-medium text-base truncate max-w-[85%]">{renderHeader(row)}</div>
+                    </div>
+                    {renderSubheader(row) && (
+                      <div className="mt-1 w-full overflow-hidden pr-6 pb-1">
+                        {renderSubheader(row)}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="absolute bottom-2 right-2">
                     <ChevronDown
-                      className={cn("h-4 w-4 shrink-0 transition-transform duration-200", isExpanded && "rotate-180")}
+                      className={cn("h-4 w-4 shrink-0 transition-transform duration-300 ease-in-out", isExpanded && "rotate-180")}
                       onClick={(e) => {
                         e.stopPropagation()
+                        handleAccordionChange(isExpanded ? undefined : row.id)
                       }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.stopPropagation();
+                          handleAccordionChange(isExpanded ? undefined : row.id);
+                        }
+                      }}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={isExpanded ? "Collapse details" : "Expand details"}
                     />
                   </div>
                 </div>
@@ -319,25 +276,55 @@ export function MobileDataView<TData>({
                   onClick={(e) => {
                     e.preventDefault()
                     if (!isSelectionMode) {
-                      handleAccordionChange(row.id)
+                      handleAccordionChange(isExpanded ? undefined : row.id)
                     }
                   }}
                 >
                   <span className="sr-only">Toggle content</span>
                 </AccordionTrigger>
 
-                <AccordionContent className="px-0 pb-0 animate-in fade-in-50 duration-200">
-                  <div className="overflow-hidden">
-                    <Table>
-                      <TableBody>
+                <AccordionContent className={`px-6 pb-6 pt-2 data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up transition-all duration-300 ease-in-out accordion-content-${row.id}`}>
+                  <div className="overflow-x-auto">
+                    <Table className="w-full border-separate border-spacing-0 [&_tr]:border-0 [&_td]:border-0">
+                      <TableBody className="divide-y divide-border/30">
                         {renderDetailRows(row).map((detailRow, index) => (
-                          <TableRow key={index} className="border-t border-border hover:bg-muted/50 transition-colors">
+                          <TableRow 
+                            key={`detail-row-${row.id}-${index}`} 
+                            className="transition-colors hover:bg-transparent"
+                          >
                             {detailRow}
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
                   </div>
+
+                  <style jsx global>{`
+                    .accordion-content-${row.id} td:first-child {
+                      text-align: left;
+                      font-weight: 500;
+                      color: hsl(var(--muted-foreground));
+                      width: 40%;
+                      padding: 1rem 1.5rem 1rem 0;
+                      vertical-align: top;
+                      background: transparent;
+                      font-size: 0.9rem;
+                      letter-spacing: 0.01em;
+                    }
+                    .accordion-content-${row.id} td:last-child {
+                      text-align: right;
+                      font-weight: 500;
+                      padding: 1rem 0;
+                      vertical-align: top;
+                      font-size: 0.95rem;
+                    }
+                    .accordion-content-${row.id} tr {
+                      transition: background-color 0.2s ease;
+                    }
+                    .accordion-content-${row.id} tr:last-child td {
+                      border-bottom: none;
+                    }
+                  `}</style>
                 </AccordionContent>
               </AccordionItem>
             )

@@ -7,14 +7,38 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Pagination, PaginationContent, PaginationItem } from "@/components/ui/pagination"
 import { ChevronFirstIcon, ChevronLastIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
+import { useEffect, useState } from "react"
 
 interface TableFooterProps<TData> {
   table: Table<TData>
   pageSizeOptions?: number[]
 }
 
+// Simple isMobile hook to detect mobile screens
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth < 400); // 400px breakpoint for pagination buttons
+    };
+    
+    // Initial check
+    checkIsMobile();
+    
+    // Add event listener for window resize
+    window.addEventListener('resize', checkIsMobile);
+    
+    // Cleanup
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
+  
+  return isMobile;
+}
+
 export function TableFooter<TData>({ table, pageSizeOptions = [5, 10, 25, 50] }: TableFooterProps<TData>) {
   const id = Math.random().toString(36).substring(7)
+  const isMobile = useIsMobile()
 
   return (
     <Card className="mt-2 p-1">
@@ -66,19 +90,21 @@ export function TableFooter<TData>({ table, pageSizeOptions = [5, 10, 25, 50] }:
           <div>
             <Pagination>
               <PaginationContent>
-                {/* First page button */}
-                <PaginationItem>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="disabled:pointer-events-none disabled:opacity-50"
-                    onClick={() => table.firstPage()}
-                    disabled={!table.getCanPreviousPage()}
-                    aria-label="Go to first page"
-                  >
-                    <ChevronFirstIcon size={16} aria-hidden="true" />
-                  </Button>
-                </PaginationItem>
+                {/* First page button - Hidden in mobile */}
+                {!isMobile && (
+                  <PaginationItem>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="disabled:pointer-events-none disabled:opacity-50"
+                      onClick={() => table.firstPage()}
+                      disabled={!table.getCanPreviousPage()}
+                      aria-label="Go to first page"
+                    >
+                      <ChevronFirstIcon size={16} aria-hidden="true" />
+                    </Button>
+                  </PaginationItem>
+                )}
                 {/* Previous page button */}
                 <PaginationItem>
                   <Button
@@ -105,19 +131,21 @@ export function TableFooter<TData>({ table, pageSizeOptions = [5, 10, 25, 50] }:
                     <ChevronRightIcon size={16} aria-hidden="true" />
                   </Button>
                 </PaginationItem>
-                {/* Last page button */}
-                <PaginationItem>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="disabled:pointer-events-none disabled:opacity-50"
-                    onClick={() => table.lastPage()}
-                    disabled={!table.getCanNextPage()}
-                    aria-label="Go to last page"
-                  >
-                    <ChevronLastIcon size={16} aria-hidden="true" />
-                  </Button>
-                </PaginationItem>
+                {/* Last page button - Hidden in mobile */}
+                {!isMobile && (
+                  <PaginationItem>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="disabled:pointer-events-none disabled:opacity-50"
+                      onClick={() => table.lastPage()}
+                      disabled={!table.getCanNextPage()}
+                      aria-label="Go to last page"
+                    >
+                      <ChevronLastIcon size={16} aria-hidden="true" />
+                    </Button>
+                  </PaginationItem>
+                )}
               </PaginationContent>
             </Pagination>
           </div>

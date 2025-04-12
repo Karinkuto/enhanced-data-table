@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react"
 
-export function useMobile(breakpoint = 768) {
+const MOBILE_BREAKPOINT = 768
+
+/**
+ * Hook that checks if the current viewport is mobile-sized
+ * @param breakpoint Custom breakpoint value (default: 768px)
+ * @returns boolean indicating if viewport is mobile-sized
+ */
+export function useMobile(breakpoint = MOBILE_BREAKPOINT) {
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
@@ -22,4 +29,13 @@ export function useMobile(breakpoint = 768) {
 
   return isMobile
 }
+
+/**
+ * Alias for useMobile to maintain backward compatibility
+ * @returns boolean indicating if viewport is mobile-sized
+ */
+export const useIsMobile = useMobile
+
+// Also export as default for imports like: import useIsMobile from "./use-mobile"
+export default useMobile
 

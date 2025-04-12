@@ -14,10 +14,32 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { CircleAlertIcon, ListFilterIcon, PlusIcon, TrashIcon } from "lucide-react";
-import { useMobile } from "@/hooks/use-mobile";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { SearchCommand } from "./search-command";
 import type { SearchableColumn } from "./data-table";
+
+// Local implementation of useIsMobile with 650px breakpoint
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth <= 650); // Mobile breakpoint at 650px
+    };
+    
+    // Initial check
+    checkIsMobile();
+    
+    // Add event listener for window resize
+    window.addEventListener('resize', checkIsMobile);
+    
+    // Cleanup
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
+  
+  return isMobile;
+}
 
 interface TableToolbarProps<TData> {
   table: Table<TData>;
@@ -44,7 +66,7 @@ export function TableToolbar<TData>({
   addButtonText = "Add item",
   searchableColumns = [],
 }: TableToolbarProps<TData>) {
-  const isMobile = useMobile();
+  const isMobile = useIsMobile();
   const selectedRows = table.getSelectedRowModel().rows;
   const selectedRowsCount = selectedRows.length;
 
@@ -61,7 +83,7 @@ export function TableToolbar<TData>({
   return (
     <Card className="mb-2 p-1">
       <CardContent className="p-1">
-        <div className={cn("flex gap-3", isMobile ? "flex-col" : "flex-row items-center")}>
+        <div className={cn("flex flex-col gap-3", isMobile ? "" : "flex-row items-center")}>
           {/* Search with command */}
           <div className={cn("flex-1", isMobile ? "w-full" : "")}>
             {searchableColumns.length > 0 && (
@@ -76,7 +98,7 @@ export function TableToolbar<TData>({
             )}
           </div>
 
-          <div className={cn("flex items-center gap-3", isMobile ? "justify-between w-full" : "")}>
+          <div className={cn("flex items-center", isMobile ? "flex-wrap justify-between w-full gap-2" : "gap-3 ml-auto")}>
             {/* Add button */}
             {onAddItem && (
               <Button
@@ -91,7 +113,10 @@ export function TableToolbar<TData>({
               </Button>
             )}
 
-            <div className="flex items-center gap-2">
+            <div className={cn(
+              "flex items-center", 
+              isMobile ? "gap-1 ml-auto" : "gap-2"
+            )}>
               {/* Filter button (UI only for now) */}
               <Button
                 variant="outline"
@@ -99,23 +124,25 @@ export function TableToolbar<TData>({
                 onClick={() => toast.info("Filter feature coming soon")}
               >
                 <ListFilterIcon className="h-4 w-4" aria-hidden="true" />
-                Filter
+                {!isMobile ? "Filter" : ""}
               </Button>
 
-              {/* Columns button (UI only for now) */}
-              <Button
-                variant="outline"
-                className="flex items-center gap-1"
-                onClick={() => toast.info("Column management coming soon")}
-              >
-                <div className="grid grid-cols-2 gap-0.5 h-4 w-4">
-                  <div className="bg-current rounded-sm" />
-                  <div className="bg-current rounded-sm" />
-                  <div className="bg-current rounded-sm" />
-                  <div className="bg-current rounded-sm" />
-                </div>
-                Columns
-              </Button>
+              {/* Columns button (UI only for now) - Hide in mobile view */}
+              {!isMobile && (
+                <Button
+                  variant="outline"
+                  className="flex items-center gap-1"
+                  onClick={() => toast.info("Column management coming soon")}
+                >
+                  <div className="grid grid-cols-2 gap-0.5 h-4 w-4">
+                    <div className="bg-current rounded-sm" />
+                    <div className="bg-current rounded-sm" />
+                    <div className="bg-current rounded-sm" />
+                    <div className="bg-current rounded-sm" />
+                  </div>
+                  Columns
+                </Button>
+              )}
             </div>
 
             {/* Delete button, visible when rows are selected */}

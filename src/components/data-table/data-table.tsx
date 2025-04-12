@@ -10,15 +10,15 @@ import {
   type Row,
   type SortingState,
   type VisibilityState,
-  flexRender, RowData,
+  flexRender, type RowData,
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
-  useReactTable, Header,
+  useReactTable,
 } from "@tanstack/react-table"
 import { ChevronDownIcon, ChevronUpIcon, MoreVertical } from "lucide-react"
-import { useId, useState } from "react"
+import { useId, useState, useEffect } from "react"
 import {
   DropdownMenu,  
   DropdownMenuContent,
@@ -26,27 +26,24 @@ import {
   DropdownMenuItem,
 
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { useMobile } from "@/hooks/use-mobile"
+// Replace problematic import with a local implementation
+// import { useMobile } from "@/hooks/use-mobile"
 import { MobileDataView, } from "@/components/data-table/mobile-data-view"
 import { toast } from "sonner"
 import React, { useMemo } from "react"
+import { Copy, Edit, Trash } from "lucide-react"
 
 // Custom filter function for multi-column searching
 declare module "@tanstack/react-table" {
-
-  
   interface ColumnMeta<TData extends RowData, TValue> {
     cellClassName?: string;
     showBorder?: boolean;
   }
-
 }
+
 const defaultActionColumn: ColumnDef<any> = {
   id: "actions"
 }
@@ -92,6 +89,23 @@ export interface SearchableColumn {
   label: string
 }
 
+export interface MobileViewConfig {
+  // Column ID to use as the primary header in mobile view
+  headerColumnId?: string;
+  // Column IDs to use in the subheader in mobile view
+  subheaderColumnIds?: string[];
+  // Column IDs to exclude from detail rows in mobile view
+  excludeFromDetailColumns?: string[];
+  // Custom labels for mobile view columns
+  columnLabels?: Record<string, string>;
+}
+
+export interface BatchAction<TData> {
+  label: string;
+  icon: React.ReactNode;
+  onClick: (selectedRows: TData[]) => Promise<void> | void;
+}
+
 export interface DataTableProps<TData> {
   data: TData[]
   columns: ColumnDef<TData>[]
@@ -105,6 +119,44 @@ export interface DataTableProps<TData> {
   initialSorting?: SortingState
   rowActions?: RowAction<TData>[]
   searchableColumns?: SearchableColumn[]
+  // Mobile view configuration
+  mobileViewConfig?: MobileViewConfig
+  // Custom batch actions for mobile view
+  mobileBatchActions?: BatchAction<TData>[]
+  // Table toolbar customization
+  tableToolbarProps?: {
+    onFilter?: () => void;
+    onManageColumns?: () => void;
+    filterText?: string;
+    columnsText?: string;
+    showFilterButton?: boolean;
+    showColumnsButton?: boolean;
+  }
+}
+
+// Create a type for the cell to avoid 'any' type
+type DataTableCell<TData> = ReturnType<Row<TData>['getVisibleCells']>[number];
+
+// Simple isMobile hook implementation
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth < 768); // Standard mobile breakpoint
+    };
+    
+    // Initial check
+    checkIsMobile();
+    
+    // Add event listener for window resize
+    window.addEventListener('resize', checkIsMobile);
+    
+    // Cleanup
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
+  
+  return isMobile;
 }
 
 export function DataTable<TData>({
@@ -120,10 +172,13 @@ export function DataTable<TData>({
   initialSorting,
   rowActions,
   searchableColumns,
+  mobileViewConfig,
+  mobileBatchActions,
+  tableToolbarProps,
 }: DataTableProps<TData>) {
 
   const id = useId()
-  const isMobile = useMobile()
+  const isMobile = useIsMobile()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const defaultSorting = initialSorting ?? (columns.length > 0 && columns[0].id ? [{
     id: columns[0].id,
@@ -167,84 +222,104 @@ export function DataTable<TData>({
 
   })
 
+  // Default mobile view config
+  const defaultMobileViewConfig: MobileViewConfig = {
+    headerColumnId: "name",
+    subheaderColumnIds: ["email", "location"],
+    excludeFromDetailColumns: ["name", "email", "location", "select", "actions"],
+    columnLabels: {},
+  }
+
+  // Merge user config with defaults
+  const mobileConfig = { ...defaultMobileViewConfig, ...mobileViewConfig }
+
   // Render functions for mobile views
   const renderHeader = (row: Row<TData>) => {
-    let cell: any;
-    const nameColumn = columns.find((col) => col.id === "name" && table.getColumn(col.id)?.getIsVisible());
-  
-    if (nameColumn) {
-      cell = row.getVisibleCells().find((c) => c.column.id === nameColumn.id);
-    } else {
-      const firstVisibleCell = row.getVisibleCells().find((c) => c.column.id !== "select" && c.column.id !== "actions");
-      cell = firstVisibleCell;
+    let cell: DataTableCell<TData> | undefined;
+    
+    // Use configured header column if available and visible
+    if (mobileConfig.headerColumnId) {
+      const headerColumn = columns.find((col) => {
+        return col.id === mobileConfig.headerColumnId && 
+               col.id !== undefined && 
+               table.getColumn(col.id)?.getIsVisible();
+      });
+      if (headerColumn?.id) {
+        cell = row.getVisibleCells().find((c) => c.column.id === headerColumn.id);
+      }
+    }
+    
+    // Fallback to first visible cell that's not select or actions
+    if (!cell) {
+      cell = row.getVisibleCells().find(
+        (c) => c.column.id !== "select" && c.column.id !== "actions"
+      );
     }
   
-    return cell ? flexRender(cell.column.columnDef.cell, cell.getContext()): null
+    return cell ? flexRender(cell.column.columnDef.cell, cell.getContext()) : null;
   };
 
   const renderSubheader = (row: Row<TData>) => {
-    const visibleCells = row.getVisibleCells()
-    const emailCell = visibleCells.find((cell) => cell.column.id === "email")
-    const locationCell = visibleCells.find((cell) => cell.column.id === "location")
-
-    let emailSpan = null;
-    if (emailCell) {
-      emailSpan = <span key="email">{String(emailCell.getValue())}</span>;
+    const visibleCells = row.getVisibleCells();
+    const subheaderCells = (mobileConfig.subheaderColumnIds || [])
+      .map(id => visibleCells.find(cell => cell.column.id === id))
+      .filter(cell => cell !== undefined) as typeof visibleCells;
+    
+    // If no subheader cells configured or found, return null
+    if (subheaderCells.length === 0) {
+      return null;
     }
-
-    let separatorSpan = null;
-    let locationSpan = null;
-    if (locationCell) {
-      separatorSpan = <span key="separator" className="mx-1"> • </span>;
-      locationSpan = <span key="location">{String(locationCell.getValue())}</span>;
-    }
-
+    
     return (
-      <div className="flex items-center gap-1">
-        {emailSpan}
-        {locationSpan ? separatorSpan : null}
-        {locationSpan}
+      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 items-center">
+        {subheaderCells.map((cell, index) => (
+          <React.Fragment key={cell.column.id}>
+            <div className="inline-flex items-center">
+              <span className="text-xs font-medium text-muted-foreground mr-1.5 capitalize">
+                {cell.column.id}:
+              </span>
+              <span className="text-sm">
+                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+              </span>
+            </div>
+            {index < subheaderCells.length - 1 && (
+              <span className="text-muted-foreground/30 hidden last:hidden xs:inline-block">•</span>
+            )}
+          </React.Fragment>
+        ))}
       </div>
     );
   };
 
-
-  
-  
-
   const renderDetailRows = (row: Row<TData>) => {
-
+    const excludeIds = mobileConfig.excludeFromDetailColumns || ["select", "actions"];
+    
     return row
       .getVisibleCells()
-      .filter(
-        (cell) =>
-          cell.column.id !== "select" &&
-          cell.column.id !== "actions" &&
-          cell.column.id !== "name" &&
-          cell.column.id !== "email",
-      )
+      .filter(cell => !excludeIds.includes(cell.column.id))
       .map((cell) => {
-      
-        const isStatus = cell.column.id === "status"
+        const columnLabel = mobileConfig.columnLabels?.[cell.column.id] || 
+          (typeof cell.column.columnDef.header === "string"
+            ? cell.column.columnDef.header
+            : cell.column.id.charAt(0).toUpperCase() + cell.column.id.slice(1));
 
         return (
           <React.Fragment key={cell.column.id}>
-            <TableCell className="bg-muted/20 py-3 font-medium w-1/3 border-r border-border">
-              {typeof cell.column.columnDef.header === "string"
-                ? cell.column.columnDef.header
-                : cell.column.id.charAt(0).toUpperCase() + cell.column.id.slice(1)}
+            <TableCell className="bg-muted/20 py-3 font-medium w-1/3 min-w-[100px] max-w-[120px] border-r border-border whitespace-normal break-words">
+              {columnLabel}
             </TableCell>
-            <TableCell className="py-3 w-2/3">{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+            <TableCell className="py-3 w-2/3 overflow-hidden break-words">
+              {String(cell.getValue())}
+            </TableCell>
           </React.Fragment>
-        )
-      })
-  }
+        );
+      });
+  };
 
-  
   const defaultSearchableColumns = useMemo(() => {
     if (searchableColumns?.length) {
       return searchableColumns
-    } else {  
+    }
         return columns.reduce((cols: SearchableColumn[], col) => {
           if (col.id && col.id !== "select" && col.id !== "actions") {
 
@@ -258,7 +333,6 @@ export function DataTable<TData>({
         }
         return cols
       }, [])
-    }
   }, [searchableColumns, columns])
   const [selectedSearchColumn, setSelectedSearchColumn] = useState<string>(searchColumnId || "all")
   const [searchValue, setSearchValue] = useState<string>("")
@@ -275,11 +349,68 @@ export function DataTable<TData>({
     }
   }, [selectedSearchColumn, searchValue, table])
 
-    
+  // Create batch actions for mobile view with default values if not provided
+  const defaultBatchActions = [
+    {
+      label: "Copy",
+      icon: <Copy className="h-3.5 w-3.5" />,
+      onClick: (selectedIds: string[]) => {
+        const selectedRows = table.getSelectedRowModel().rows.map(row => row.original);
+        navigator.clipboard.writeText(JSON.stringify(selectedRows, null, 2));
+        toast.info("Selected rows copied to clipboard");
+      },
+    },
+    {
+      label: "Edit",
+      icon: <Edit className="h-3.5 w-3.5" />,
+      onClick: () => {
+        toast.info("Edit selected rows");
+      },
+    },
+    {
+      label: "Delete",
+      icon: <Trash className="h-3.5 w-3.5" />,
+      onClick: () => {
+        if (onDeleteRows) {
+          const selectedRows = table.getSelectedRowModel().rows.map(row => row.original);
+          onDeleteRows(selectedRows);
+          toast.success(`Deleted ${selectedRows.length} ${selectedRows.length === 1 ? "row" : "rows"}`);
+        } else {
+          toast.info("Delete selected rows");
+        }
+      },
+    },
+  ];
+
+  // Map custom batch actions
+  const batchActions = mobileBatchActions 
+    ? mobileBatchActions.map(action => ({
+        label: action.label,
+        icon: action.icon,
+        onClick: (selectedIds: string[]) => {
+          const selectedRows = table.getSelectedRowModel().rows
+            .filter(row => selectedIds.includes(row.id))
+            .map(row => row.original);
+          return action.onClick(selectedRows);
+        },
+      }))
+    : defaultBatchActions;
+
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col w-full h-[95dvh] justify-between ">
+      {/* CSS utility for no-scrollbar */}
+      <style jsx global>{`
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
+      
       {/* Table Toolbar */}
-    <TableToolbar
+      <TableToolbar
         table={table}
         searchColumnId={selectedSearchColumn}
         onSearchColumnChange={setSelectedSearchColumn}
@@ -290,6 +421,7 @@ export function DataTable<TData>({
         onDeleteRows={onDeleteRows}
         addButtonText={addButtonText}
         searchableColumns={defaultSearchableColumns}
+        {...tableToolbarProps}
       />
 
       {isMobile ? (
@@ -299,6 +431,7 @@ export function DataTable<TData>({
           renderHeader={renderHeader}
           renderSubheader={renderSubheader}
           renderDetailRows={renderDetailRows}
+          batchActions={batchActions}
           onRowAction={rowActions ? (row) => (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -314,9 +447,9 @@ export function DataTable<TData>({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[160px]">
                 <DropdownMenuGroup>
-                  {rowActions.map((action, index) => (
+                  {rowActions.map((action) => (
                     <DropdownMenuItem
-                      key={index}
+                      key={`row-action-${action.label}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         action.onClick(row.original);
@@ -436,7 +569,34 @@ export function DataTable<TData>({
 }
 
 // Default row actions component for convenience
-export function DefaultRowActions<TData>({ row }: { row: Row<TData> }) {
+export interface DefaultRowActionsProps<TData> {
+  row: Row<TData>;
+  onCopy?: (row: TData) => void;
+  onEdit?: (row: TData) => void;
+  onDelete?: (row: TData) => void;
+  copyText?: string;
+  editText?: string;
+  deleteText?: string;
+  showCopy?: boolean;
+  showEdit?: boolean;
+  showDelete?: boolean;
+}
+
+export function DefaultRowActions<TData>({
+  row,
+  onCopy = (row) => {
+    navigator.clipboard.writeText(JSON.stringify(row, null, 2));
+    toast.info("Row data copied to clipboard");
+  },
+  onEdit = (row) => toast.info("Edit row"),
+  onDelete = (row) => toast.info("Delete row"),
+  copyText = "Copy",
+  editText = "Edit",
+  deleteText = "Delete",
+  showCopy = true,
+  showEdit = true,
+  showDelete = true,
+}: DefaultRowActionsProps<TData>) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -446,23 +606,25 @@ export function DefaultRowActions<TData>({ row }: { row: Row<TData> }) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[160px]">
-        <DropdownMenuItem
-          onClick={() => {
-            navigator.clipboard.writeText(JSON.stringify(row.original, null, 2))
-            toast.info("Row data copied to clipboard")
-          }}
-        >
-          Copy
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => toast.info("Edit row")}>
-          Edit
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => toast.info("Delete row")}>
-          Delete
-        </DropdownMenuItem>
+        {showCopy && (
+          <DropdownMenuItem
+            onClick={() => onCopy(row.original)}
+          >
+            {copyText}
+          </DropdownMenuItem>
+        )}
+        {showEdit && (
+          <DropdownMenuItem onClick={() => onEdit(row.original)}>
+            {editText}
+          </DropdownMenuItem>
+        )}
+        {showCopy && showDelete && <DropdownMenuSeparator />}
+        {showDelete && (
+          <DropdownMenuItem onClick={() => onDelete(row.original)}>
+            {deleteText}
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
-
 }
