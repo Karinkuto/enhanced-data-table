@@ -21,6 +21,7 @@ interface SearchCommandProps {
   searchValue: string
   onSearchChange: (value: string) => void
   placeholder?: string
+  showColumnSelection?: boolean
 }
 
 export function SearchCommand({
@@ -30,6 +31,7 @@ export function SearchCommand({
   searchValue,
   onSearchChange,
   placeholder = "Search...",
+  showColumnSelection = true,
 }: SearchCommandProps) {
   const [open, setOpen] = React.useState(false)
   const selectedColumnLabel = React.useMemo(() => {
@@ -38,55 +40,57 @@ export function SearchCommand({
 
   return (
     <div className="flex w-full items-center space-x-0">
-      {/* Column selector on the left */}
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            className="rounded-r-none border-r-0 relative w-[120px] justify-between"
-          >
-            <span className="line-clamp-1 text-sm">{selectedColumnLabel}</span>
-            <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[200px] p-0" align="start">
-          <Command>
-            <CommandInput placeholder="Search column..." />
-            <CommandList>
-              <CommandEmpty>No column found.</CommandEmpty>
-              <CommandGroup>
-                <CommandItem
-                  value="all"
-                  onSelect={() => {
-                    onColumnChange("all")
-                    setOpen(false)
-                  }}
-                >
-                  <Check className={cn("mr-2 h-4 w-4", selectedColumn === "all" ? "opacity-100" : "opacity-0")} />
-                  All
-                </CommandItem>
-                {columns.map((column) => (
+      {/* Column selector on the left - only shown if showColumnSelection is true */}
+      {showColumnSelection && (
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={open}
+              className="rounded-r-none border-r-0 relative w-[120px] justify-between"
+            >
+              <span className="line-clamp-1 text-sm">{selectedColumnLabel}</span>
+              <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[200px] p-0" align="start">
+            <Command>
+              <CommandInput placeholder="Search column..." />
+              <CommandList>
+                <CommandEmpty>No column found.</CommandEmpty>
+                <CommandGroup>
                   <CommandItem
-                    key={column.id}
-                    value={column.id}
+                    value="all"
                     onSelect={() => {
-                      onColumnChange(column.id)
+                      onColumnChange("all")
                       setOpen(false)
                     }}
                   >
-                    <Check
-                      className={cn("mr-2 h-4 w-4", selectedColumn === column.id ? "opacity-100" : "opacity-0")}
-                    />
-                    {column.label}
+                    <Check className={cn("mr-2 h-4 w-4", selectedColumn === "all" ? "opacity-100" : "opacity-0")} />
+                    All
                   </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+                  {columns.map((column) => (
+                    <CommandItem
+                      key={column.id}
+                      value={column.id}
+                      onSelect={() => {
+                        onColumnChange(column.id)
+                        setOpen(false)
+                      }}
+                    >
+                      <Check
+                        className={cn("mr-2 h-4 w-4", selectedColumn === column.id ? "opacity-100" : "opacity-0")}
+                      />
+                      {column.label}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+      )}
 
       {/* Search input on the right */}
       <div className="relative flex-1">
@@ -96,7 +100,10 @@ export function SearchCommand({
           placeholder={placeholder}
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full pl-9 rounded-l-none"
+          className={cn(
+            "w-full pl-9", 
+            showColumnSelection ? "rounded-l-none" : "rounded-lg"
+          )}
         />
       </div>
     </div>

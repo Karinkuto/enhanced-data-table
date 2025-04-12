@@ -52,6 +52,7 @@ interface TableToolbarProps<TData> {
   onDeleteRows?: (rows: TData[]) => void;
   addButtonText?: string;
   searchableColumns?: SearchableColumn[];
+  showColumnSelection?: boolean;
 }
 
 export function TableToolbar<TData>({
@@ -65,20 +66,9 @@ export function TableToolbar<TData>({
   onDeleteRows,
   addButtonText = "Add item",
   searchableColumns = [],
+  showColumnSelection = true,
 }: TableToolbarProps<TData>) {
   const isMobile = useIsMobile();
-  const selectedRows = table.getSelectedRowModel().rows;
-  const selectedRowsCount = selectedRows.length;
-
-  const handleDeleteRows = () => {
-    if (!onDeleteRows) return;
-    const originals = selectedRows.map((row) => row.original);
-    onDeleteRows(originals);
-    table.resetRowSelection();
-    toast.success(
-      `Deleted ${originals.length} ${originals.length === 1 ? "row" : "rows"}`
-    );
-  };
 
   return (
     <Card className="mb-2 p-1">
@@ -94,6 +84,7 @@ export function TableToolbar<TData>({
                 searchValue={searchValue}
                 onSearchChange={onSearchValueChange ?? (() => {})}
                 placeholder={searchPlaceholder}
+                showColumnSelection={showColumnSelection}
               />
             )}
           </div>
@@ -144,42 +135,6 @@ export function TableToolbar<TData>({
                 </Button>
               )}
             </div>
-
-            {/* Delete button, visible when rows are selected */}
-            {onDeleteRows && selectedRowsCount > 0 && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button className="ml-auto flex items-center" variant="outline">
-                    <TrashIcon className="h-4 w-4 mr-1 opacity-60" aria-hidden="true" />
-                    Delete
-                    <span className="bg-background text-muted-foreground/70 -mr-1 ml-1 inline-flex h-5 max-h-full items-center rounded border px-1 font-[inherit] text-[0.625rem] font-medium">
-                      {selectedRowsCount}
-                    </span>
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <div className="flex flex-col gap-2 max-sm:items-center sm:flex-row sm:gap-4">
-                    <div
-                      className="flex size-9 shrink-0 items-center justify-center rounded-full border"
-                      aria-hidden="true"
-                    >
-                      <CircleAlertIcon className="opacity-80" size={16} />
-                    </div>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete{" "}
-                        {selectedRowsCount} selected {selectedRowsCount === 1 ? "row" : "rows"}.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                  </div>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDeleteRows}>Delete</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
           </div>
         </div>
       </CardContent>

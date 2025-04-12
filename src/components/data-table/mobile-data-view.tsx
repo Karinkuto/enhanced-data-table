@@ -2,16 +2,15 @@
 
 import type React from "react"
 import { useState, useEffect, useTransition } from "react"
-import type { Row } from "@tanstack/react-table"
+import type { Row, Table } from "@tanstack/react-table"
 import { Check, ChevronDown, Loader, X, Copy, Edit, Trash } from "lucide-react"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button"
-import { Table, TableBody, TableRow } from "@/components/ui/table"
+import { Table as UITable, TableBody, TableRow } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
-import { FloatingSelectionController } from "./floating-selection-controller"
 
 interface MobileDataViewProps<TData> {
   data: Row<TData>[]
@@ -23,8 +22,10 @@ interface MobileDataViewProps<TData> {
     label: string
     icon: React.ReactNode
     onClick: (selectedIds: string[]) => Promise<void> | void
+    hotkey?: string
   }[]
   emptyState?: React.ReactNode
+  table: Table<TData>
 }
 
 export function MobileDataView<TData>({
@@ -35,34 +36,25 @@ export function MobileDataView<TData>({
   onRowAction,
   batchActions,
   emptyState,
+  table,
 }: MobileDataViewProps<TData>) {
   const [expandedItem, setExpandedItem] = useState<string | undefined>(undefined)
-  const [selectedItems, setSelectedItems] = useState<string[]>([])
-  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null)
   const [touchPosition, setTouchPosition] = useState<{ x: number; y: number } | null>(null)
-  const [isSelectionMode, setIsSelectionMode] = useState(false)
-  const [isPending, startTransition] = useTransition()
-  const [currentAction, setCurrentAction] = useState<string | null>(null)
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null)
 
-  useEffect(() => {
-    if (selectedItems.length === 0 && isSelectionMode) {
-      setIsSelectionMode(false)
-    } else if (selectedItems.length > 0 && !isSelectionMode) {
-      setIsSelectionMode(true)
-    }
-  }, [selectedItems, isSelectionMode])
+  const isSelectionMode = table.getSelectedRowModel().rows.length > 0
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && selectedItems.length > 0) {
-        setSelectedItems([])
+      if (event.key === "Escape" && isSelectionMode) {
+        table.toggleAllRowsSelected(false)
         toast.info("Selection cleared", { position: "top-center" })
       }
     }
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [selectedItems])
+  }, [isSelectionMode, table])
 
   const handleAccordionChange = (value: string | undefined) => {
     if (isSelectionMode) return
@@ -74,7 +66,13 @@ export function MobileDataView<TData>({
     const touch = e.touches[0]
     setTouchPosition({ x: touch.clientX, y: touch.clientY })
     const timer = setTimeout(() => {
-      if (touchPosition) toggleRowSelection(rowId)
+      if (touchPosition) {
+        // If this row's accordion is expanded, collapse it first
+        if (expandedItem === rowId) {
+          setExpandedItem(undefined);
+        }
+        toggleRowSelection(rowId)
+      }
     }, 300)
     setLongPressTimer(timer)
   }
@@ -102,55 +100,35 @@ export function MobileDataView<TData>({
   }
 
   const toggleRowSelection = (rowId: string) => {
-    setSelectedItems((prev) => {
-      const isSelected = prev.includes(rowId)
-      const newSelection = isSelected ? prev.filter((id) => id !== rowId) : [...prev, rowId]
-      if (navigator.vibrate) navigator.vibrate(50)
-      
-      // Close accordion if selecting a row
-      if (!isSelected) {
-        setExpandedItem(undefined)
+    const row = table.getRowModel().rows.find(r => r.id === rowId)
+    if (row) {
+      // If this row is expanded, collapse it first
+      if (expandedItem === rowId) {
+        setExpandedItem(undefined);
       }
       
-      return newSelection
-    })
+      row.toggleSelected(!row.getIsSelected())
+      if (navigator.vibrate) navigator.vibrate(50)
+      
+      // Close accordion if selecting a row - this is redundant with the check above but kept for safety
+      if (row.getIsSelected()) {
+        setExpandedItem(undefined)
+      }
+    }
   }
 
   const handleRowClick = (rowId: string) => {
     if (isSelectionMode) {
+      // If this row's accordion is expanded, collapse it first
+      if (expandedItem === rowId) {
+        setExpandedItem(undefined);
+      }
+      
       toggleRowSelection(rowId)
     } else if (onRowAction) {
       const row = data.find((r) => r.id === rowId)
       if (row) onRowAction(row)
     }
-  }
-
-  const selectAll = () => {
-    setSelectedItems(data.map((row) => row.id))
-    toast.success("All items selected", { duration: 1500, position: "top-center" })
-  }
-
-  const deselectAll = () => {
-    setSelectedItems([])
-    toast.info("Selection cleared", { duration: 1500, position: "top-center" })
-  }
-
-  const handleBatchAction = (action: { 
-    label: string
-    icon: React.ReactNode
-    onClick: (selectedIds: string[]) => Promise<void> | void 
-  }, index: number) => {
-    setCurrentAction(action.label)
-    startTransition(async () => {
-      try {
-        await action.onClick(selectedItems)
-      } catch (error) {
-        toast.error("An error occurred")
-        console.error(error)
-      } finally {
-        setCurrentAction(null)
-      }
-    })
   }
 
   if (data.length === 0 && emptyState) {
@@ -160,19 +138,6 @@ export function MobileDataView<TData>({
   return (
     <TooltipProvider>
       <div className="space-y-2">
-        {isSelectionMode && batchActions && batchActions.length > 0 && (
-          <FloatingSelectionController
-            selectedItems={selectedItems}
-            allItemIds={data.map(row => row.id)}
-            onSelectAll={selectAll}
-            onDeselectAll={deselectAll}
-            batchActions={batchActions}
-            currentAction={currentAction}
-            isPending={isPending}
-            onBatchAction={handleBatchAction}
-          />
-        )}
-
         <Accordion 
           type="single" 
           value={expandedItem} 
@@ -181,7 +146,7 @@ export function MobileDataView<TData>({
           collapsible
         >
           {data.map((row) => {
-            const isSelected = selectedItems.includes(row.id)
+            const isSelected = row.getIsSelected()
             const isExpanded = expandedItem === row.id
 
             return (
@@ -235,7 +200,7 @@ export function MobileDataView<TData>({
                         isSelected ? "text-primary-foreground opacity-100" : "opacity-0"
                       )} 
                     />
-                  </div>
+                    </div>
 
                   <div className={cn(
                     "flex flex-col items-start text-left w-full overflow-hidden transition-all duration-300",
@@ -285,7 +250,7 @@ export function MobileDataView<TData>({
 
                 <AccordionContent className={`px-6 pb-6 pt-2 data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up transition-all duration-300 ease-in-out accordion-content-${row.id}`}>
                   <div className="overflow-x-auto">
-                    <Table className="w-full border-separate border-spacing-0 [&_tr]:border-0 [&_td]:border-0">
+                    <UITable className="w-full border-separate border-spacing-0 [&_tr]:border-0 [&_td]:border-0">
                       <TableBody className="divide-y divide-border/30">
                         {renderDetailRows(row).map((detailRow, index) => (
                           <TableRow 
@@ -296,7 +261,7 @@ export function MobileDataView<TData>({
                           </TableRow>
                         ))}
                       </TableBody>
-                    </Table>
+                    </UITable>
                   </div>
 
                   <style jsx global>{`
@@ -305,16 +270,16 @@ export function MobileDataView<TData>({
                       font-weight: 500;
                       color: hsl(var(--muted-foreground));
                       width: 40%;
-                      padding: 1rem 1.5rem 1rem 0;
+                      padding: 1rem 1.5rem 1rem 0.75rem;
                       vertical-align: top;
                       background: transparent;
                       font-size: 0.9rem;
                       letter-spacing: 0.01em;
                     }
                     .accordion-content-${row.id} td:last-child {
-                      text-align: right;
+                      text-align: left;
                       font-weight: 500;
-                      padding: 1rem 0;
+                      padding: 1rem 0.75rem;
                       vertical-align: top;
                       font-size: 0.95rem;
                     }

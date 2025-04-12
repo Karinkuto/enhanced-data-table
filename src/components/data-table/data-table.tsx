@@ -17,8 +17,8 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { ChevronDownIcon, ChevronUpIcon, MoreVertical } from "lucide-react"
-import { useId, useState, useEffect } from "react"
+import { ChevronDownIcon, ChevronUpIcon, MoreVertical, FileDownIcon, UserPlusIcon, UserMinusIcon } from "lucide-react"
+import { useId, useState, useEffect, useTransition } from "react"
 import {
   DropdownMenu,  
   DropdownMenuContent,
@@ -35,6 +35,8 @@ import { MobileDataView, } from "@/components/data-table/mobile-data-view"
 import { toast } from "sonner"
 import React, { useMemo } from "react"
 import { Copy, Edit, Trash } from "lucide-react"
+import { fuzzyFilter } from "@/lib/fuzzy-filter"
+import { FloatingSelectionController } from "./floating-selection-controller"
 
 // Custom filter function for multi-column searching
 declare module "@tanstack/react-table" {
@@ -44,11 +46,11 @@ declare module "@tanstack/react-table" {
   }
 }
 
-const defaultActionColumn: ColumnDef<any> = {
+const defaultActionColumn: ColumnDef<unknown> = {
   id: "actions"
 }
 
-export const multiColumnFilterFn: FilterFn<any> = (row, columnId, filterValue) => {
+export const multiColumnFilterFn: FilterFn<unknown> = (row, columnId, filterValue) => {
   if (!filterValue) return true
   
   // If searching all columns
@@ -71,7 +73,7 @@ export const multiColumnFilterFn: FilterFn<any> = (row, columnId, filterValue) =
 }
 
 // Filter function for status or any categorical field
-export const categoryFilterFn: FilterFn<any> = (row, columnId, filterValue: string[]) => {
+export const categoryFilterFn: FilterFn<unknown> = (row, columnId, filterValue: string[]) => {
   if (!filterValue?.length) return true
   const value = row.getValue(columnId) as string
   return filterValue.includes(value)
@@ -104,6 +106,7 @@ export interface BatchAction<TData> {
   label: string;
   icon: React.ReactNode;
   onClick: (selectedRows: TData[]) => Promise<void> | void;
+  hotkey?: string;
 }
 
 export interface DataTableProps<TData> {
@@ -194,6 +197,39 @@ export function DataTable<TData>({
     pageSize: initialPageSize,
   })
   
+  // Selection state and batch action handling
+  const [isPending, startTransition] = useTransition()
+  const [currentAction, setCurrentAction] = useState<string | null>(null)
+
+  // Default searchable columns setup
+  const defaultSearchableColumns = useMemo(() => {
+    if (searchableColumns?.length) {
+      return searchableColumns
+    }
+    return columns.reduce((cols: SearchableColumn[], col) => {
+      if (col.id && typeof col.id === "string" && col.id !== "select" && col.id !== "actions") {
+        cols.push({
+          id: col.id,
+          label: col.header ? String(col.header) : col.id,
+        })
+      }
+      return cols
+    }, [])
+  }, [searchableColumns, columns])
+  
+  // For mobile views, always use "all" as the search column
+  const [selectedSearchColumn, setSelectedSearchColumn] = useState<string>(
+    isMobile ? "all" : (searchColumnId || "all")
+  )
+  const [searchValue, setSearchValue] = useState<string>("")
+
+  // Reset to "all" search if switching to mobile
+  useEffect(() => {
+    if (isMobile && selectedSearchColumn !== "all") {
+      setSelectedSearchColumn("all")
+    }
+  }, [isMobile, selectedSearchColumn])
+
   const table = useReactTable({
     data, 
     columns, 
@@ -210,17 +246,41 @@ export function DataTable<TData>({
     getFilteredRowModel: getFilteredRowModel(),
     filterFns: {
       multiColumn: multiColumnFilterFn,
-      
-      category: categoryFilterFn, 
+      category: categoryFilterFn,
+      fuzzy: fuzzyFilter,
     },
+    globalFilterFn: fuzzyFilter,
     state: { 
       sorting,
       pagination, 
       columnFilters,
       columnVisibility,
+      globalFilter: selectedSearchColumn === "all" ? searchValue : undefined,
     },
-
   })
+
+  // When search column or value changes, update the column filters
+  useEffect(() => {
+    if (searchValue) {
+      if (selectedSearchColumn === "all") {
+        // For "all" column search, use the globalFilter
+        table.setGlobalFilter(searchValue)
+        // Clear column filters when using global filter
+        table.setColumnFilters([])
+      } else if (selectedSearchColumn) {
+        // For specific column search, use column filters
+        table.setGlobalFilter(undefined) // Clear global filter
+        table.setColumnFilters([{
+          id: selectedSearchColumn,
+          value: searchValue
+        }])
+      }
+    } else {
+      // Clear all filters when search is empty
+      table.setGlobalFilter(undefined)
+      table.setColumnFilters([])
+    }
+  }, [selectedSearchColumn, searchValue, table])
 
   // Default mobile view config
   const defaultMobileViewConfig: MobileViewConfig = {
@@ -305,10 +365,10 @@ export function DataTable<TData>({
 
         return (
           <React.Fragment key={cell.column.id}>
-            <TableCell className="bg-muted/20 py-3 font-medium w-1/3 min-w-[100px] max-w-[120px] border-r border-border whitespace-normal break-words">
+            <TableCell className="bg-muted/20 py-3 px-3 font-medium w-1/3 min-w-[100px] max-w-[120px] border-r border-border whitespace-normal break-words">
               {columnLabel}
             </TableCell>
-            <TableCell className="py-3 w-2/3 overflow-hidden break-words">
+            <TableCell className="py-3 px-3 w-2/3 overflow-hidden break-words">
               {String(cell.getValue())}
             </TableCell>
           </React.Fragment>
@@ -316,56 +376,33 @@ export function DataTable<TData>({
       });
   };
 
-  const defaultSearchableColumns = useMemo(() => {
-    if (searchableColumns?.length) {
-      return searchableColumns
-    }
-        return columns.reduce((cols: SearchableColumn[], col) => {
-          if (col.id && col.id !== "select" && col.id !== "actions") {
-
-
-              cols.push({
-                  id: col.id,
-                  
-                  label: (typeof col.header === "string" ? col.header : col.id)
-
-              })
-        }
-        return cols
-      }, [])
-  }, [searchableColumns, columns])
-  const [selectedSearchColumn, setSelectedSearchColumn] = useState<string>(searchColumnId || "all")
-  const [searchValue, setSearchValue] = useState<string>("")
-
-   // When search column or value changes, update the column filters
-  React.useEffect(() => {
-    if (selectedSearchColumn && searchValue) {
-      table.setColumnFilters([{
-        id: selectedSearchColumn,
-        value: searchValue
-      }])
-    } else {
-      table.setColumnFilters([])
-    }
-  }, [selectedSearchColumn, searchValue, table])
-
   // Create batch actions for mobile view with default values if not provided
   const defaultBatchActions = [
     {
-      label: "Copy",
-      icon: <Copy className="h-3.5 w-3.5" />,
+      label: "Export",
+      icon: <FileDownIcon className="h-3.5 w-3.5" />,
       onClick: (selectedIds: string[]) => {
         const selectedRows = table.getSelectedRowModel().rows.map(row => row.original);
         navigator.clipboard.writeText(JSON.stringify(selectedRows, null, 2));
         toast.info("Selected rows copied to clipboard");
       },
+      hotkey: "alt+e"
     },
     {
-      label: "Edit",
-      icon: <Edit className="h-3.5 w-3.5" />,
+      label: "Activate",
+      icon: <UserPlusIcon className="h-3.5 w-3.5" />,
       onClick: () => {
-        toast.info("Edit selected rows");
+        toast.info("Activate selected rows");
       },
+      hotkey: "alt+a"
+    },
+    {
+      label: "Deactivate",
+      icon: <UserMinusIcon className="h-3.5 w-3.5" />,
+      onClick: () => {
+        toast.info("Deactivate selected rows");
+      },
+      hotkey: "alt+d"
     },
     {
       label: "Delete",
@@ -379,6 +416,7 @@ export function DataTable<TData>({
           toast.info("Delete selected rows");
         }
       },
+      hotkey: "delete"
     },
   ];
 
@@ -393,39 +431,68 @@ export function DataTable<TData>({
             .map(row => row.original);
           return action.onClick(selectedRows);
         },
+        hotkey: action.hotkey
       }))
     : defaultBatchActions;
 
-  return (
-    <div className="flex flex-col w-full h-[95dvh] justify-between ">
-      {/* CSS utility for no-scrollbar */}
-      <style jsx global>{`
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
-      
-      {/* Table Toolbar */}
-      <TableToolbar
-        table={table}
-        searchColumnId={selectedSearchColumn}
-        onSearchColumnChange={setSelectedSearchColumn}
-        searchValue={searchValue}
-        onSearchValueChange={setSearchValue}
-        searchPlaceholder={searchPlaceholder}
-        onAddItem={onAddItem}
-        onDeleteRows={onDeleteRows}
-        addButtonText={addButtonText}
-        searchableColumns={defaultSearchableColumns}
-        {...tableToolbarProps}
-      />
+  // Handle batch action for both mobile and desktop
+  const handleBatchAction = (action: { 
+    label: string
+    icon: React.ReactNode
+    onClick: (selectedIds: string[]) => Promise<void> | void 
+    hotkey?: string
+  }, index: number) => {
+    setCurrentAction(action.label)
+    startTransition(async () => {
+      try {
+        const selectedIds = table.getSelectedRowModel().rows.map(row => row.id)
+        await action.onClick(selectedIds)
+        
+        // Clear selection after action is completed
+        table.toggleAllRowsSelected(false)
+      } catch (error) {
+        toast.error("An error occurred")
+        console.error(error)
+      } finally {
+        setCurrentAction(null)
+      }
+    })
+  }
 
-      {isMobile ? (
-        /* Mobile View */
+  // Functions to handle selection in desktop view
+  const selectAll = () => {
+    table.toggleAllRowsSelected(true)
+    toast.success("All items selected", { duration: 1500, position: "top-center" })
+  }
+
+  const deselectAll = () => {
+    table.toggleAllRowsSelected(false)
+    toast.info("Selection cleared", { duration: 1500, position: "top-center" })
+  }
+
+  // Get the selected rows for both views
+  const selectedRowCount = table.getSelectedRowModel().rows.length
+  const allRowIds = table.getRowModel().rows.map(row => row.id)
+  const selectedRowIds = table.getSelectedRowModel().rows.map(row => row.id)
+
+  // If we're on mobile, render the MobileDataView
+  if (isMobile) {
+    return (
+      <div className="space-y-4">
+        <TableToolbar 
+          table={table}
+          searchColumnId={selectedSearchColumn}
+          onSearchColumnChange={setSelectedSearchColumn}
+          searchValue={searchValue}
+          onSearchValueChange={setSearchValue}
+          searchPlaceholder={searchPlaceholder}
+          onAddItem={onAddItem}
+          onDeleteRows={onDeleteRows}
+          addButtonText={addButtonText}
+          searchableColumns={defaultSearchableColumns}
+          showColumnSelection={false} // Always hide column selection on mobile
+        />
+        
         <MobileDataView
           data={table.getRowModel().rows}
           renderHeader={renderHeader}
@@ -453,6 +520,10 @@ export function DataTable<TData>({
                       onClick={(e) => {
                         e.stopPropagation();
                         action.onClick(row.original);
+                        // Clear the selection state after action is completed
+                        if (row.getIsSelected()) {
+                          row.toggleSelected(false);
+                        }
                         toast.info(`${action.label} action triggered`);
                       }}
                     >
@@ -464,103 +535,163 @@ export function DataTable<TData>({
               </DropdownMenuContent>
             </DropdownMenu>
           ) : undefined}
+          table={table} // Pass the full table to ensure selection state is shared
         />
-      ) : (
-        /* Desktop View */
-        <div className="bg-background overflow-hidden rounded-md border">
-          <Table className="table-fixed">
-            <TableHeader>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="hover:bg-transparent">
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead
-                      key={header.id}
-                      style={{ width: `${header.getSize()}px` }}
-                      className={cn("h-12", header.column.columnDef.meta?.cellClassName)}
-                    >
-                      {header.isPlaceholder ? null : header.column.getCanSort() ? (
-                        <div
-                          className={cn(
-                            header.column.getCanSort() &&
-                            "flex h-full cursor-pointer items-center justify-between gap-2 select-none",
-                          )}
-                          onClick={header.column.getToggleSortingHandler()}
-                          onKeyDown={(e) => {
-                            if (header.column.getCanSort() && (e.key === "Enter" || e.key === " ")) {
-                              e.preventDefault()
-                              header.column.getToggleSortingHandler()?.(e)
-                            }
-                          }}
-                          role={header.column.getCanSort() ? "button" : undefined}
-                          tabIndex={header.column.getCanSort() ? 0 : undefined}
-                          aria-label={
-                            header.column.getCanSort()
-                              ? `Sort by ${header.column.columnDef.header?.toString()} (${
-                                  header.column.getIsSorted() === "desc"
-                                    ? "descending"
-                                    : header.column.getIsSorted() === "asc"
-                                    ? "ascending"
-                                    : "none"
-                                })`
-                              : undefined
-                          }
-                        >
-                          <span>
-                            {flexRender(header.column.columnDef.header, header.getContext())}
-                          </span>
-                          <div className="flex h-4 w-4 shrink-0 items-center justify-center">
-                            {header.column.getIsSorted() === "asc" ? (
-                              <ChevronUpIcon size={16} />
-                            ) : header.column.getIsSorted() === "desc" ? (
-                              <ChevronDownIcon size={16} />
-                            ) : null}
-                          </div>
-                        </div>
-                      ) : (
-                        flexRender(header.column.columnDef.header, header.getContext())
-                      )}
-                    </TableHead>
-                  )
-                })}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows.length ? (
-                table.getRowModel().rows.map((row) => ( 
-                  <TableRow
-                    key={row.id}
-                  className={cn("h-12 transition-colors", row.getIsSelected() && "bg-muted/50")}>
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell
-                        key={cell.id}
-                        className={cn(
-                          "py-2", "[&>*:first-child]:flex [&>*:first-child]:items-center [&>*:first-child]:justify-center",
-                          cell.column.columnDef.meta?.cellClassName,
-                          cell.column.columnDef.meta?.showBorder && "border-x",
-                        )}>
-                      {
-                      flexRender(cell.column.columnDef.cell, cell.getContext())
-                      }
-                      </TableCell>
-                    ))}
 
-                  </TableRow>
-                ))
-              ) : ( 
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="h-24 text-center">
-                    No results.
-                  </TableCell>
-                </TableRow>
-              )
-                
-              }
-            </TableBody>
-          </Table>
+        {/* Table Footer for Pagination */}
+        <TableFooter table={table} pageSizeOptions={pageSizeOptions} />
+
+        {/* Floating selection controller for mobile */}
+        {selectedRowCount > 0 && (
+          <FloatingSelectionController
+            selectedItems={selectedRowIds}
+            allItemIds={allRowIds}
+            onSelectAll={selectAll}
+            onDeselectAll={deselectAll}
+            batchActions={batchActions}
+            currentAction={currentAction}
+            isPending={isPending}
+            onBatchAction={handleBatchAction}
+            displayMode="compact"
+            position="fixed"
+          />
+        )}
+      </div>
+    )
+  }
+
+  // Normal desktop table render
+  return (
+    <div className="space-y-4">
+      <TableToolbar 
+        table={table}
+        searchColumnId={selectedSearchColumn}
+        onSearchColumnChange={setSelectedSearchColumn}
+        searchValue={searchValue}
+        onSearchValueChange={setSearchValue}
+        searchPlaceholder={searchPlaceholder}
+        onAddItem={onAddItem}
+        onDeleteRows={onDeleteRows}
+        addButtonText={addButtonText}
+        searchableColumns={defaultSearchableColumns}
+        showColumnSelection={true} // Always show column selection on desktop
+      />
+      
+      {/* Selection controller container - always render to maintain layout stability */}
+      <div className={cn(
+        "h-auto overflow-hidden transition-all duration-300",
+        selectedRowCount > 0 ? "max-h-24 opacity-100 mb-2" : "max-h-0 opacity-0 mb-0"
+      )}>
+        <div className="p-1 rounded-md">
+          <FloatingSelectionController
+            selectedItems={selectedRowIds}
+            allItemIds={allRowIds}
+            onSelectAll={selectAll}
+            onDeselectAll={deselectAll}
+            batchActions={batchActions}
+            currentAction={currentAction}
+            isPending={isPending}
+            onBatchAction={handleBatchAction}
+            displayMode="full-width"
+            position="static"
+            className="transition-all duration-300"
+          />
         </div>
-      )}
+      </div>
+      
+      <div className="bg-background overflow-hidden rounded-md border">
+        <Table className="table-fixed">
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id} className="hover:bg-transparent">
+              {headerGroup.headers.map((header) => {
+                return (
+                  <TableHead
+                    key={header.id}
+                    style={{ width: `${header.getSize()}px` }}
+                    className={cn("h-12 px-3", header.column.columnDef.meta?.cellClassName)}
+                  >
+                    {header.isPlaceholder ? null : header.column.getCanSort() ? (
+                      <div
+                        className={cn(
+                          header.column.getCanSort() &&
+                          "flex h-full cursor-pointer items-center justify-start gap-2 select-none",
+                        )}
+                        onClick={header.column.getToggleSortingHandler()}
+                        onKeyDown={(e) => {
+                          if (header.column.getCanSort() && (e.key === "Enter" || e.key === " ")) {
+                            e.preventDefault()
+                            header.column.getToggleSortingHandler()?.(e)
+                          }
+                        }}
+                        role={header.column.getCanSort() ? "button" : undefined}
+                        tabIndex={header.column.getCanSort() ? 0 : undefined}
+                        aria-label={
+                          header.column.getCanSort()
+                            ? `Sort by ${header.column.columnDef.header?.toString()} (${
+                                header.column.getIsSorted() === "desc"
+                                  ? "descending"
+                                  : header.column.getIsSorted() === "asc"
+                                  ? "ascending"
+                                  : "none"
+                              })`
+                            : undefined
+                        }
+                      >
+                        <span>
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                        </span>
+                        <div className="flex h-4 w-4 shrink-0 items-center justify-center ml-auto">
+                          {header.column.getIsSorted() === "asc" ? (
+                            <ChevronUpIcon size={16} />
+                          ) : header.column.getIsSorted() === "desc" ? (
+                            <ChevronDownIcon size={16} />
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : (
+                      flexRender(header.column.columnDef.header, header.getContext())
+                    )}
+                  </TableHead>
+                )
+              })}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows.length ? (
+              table.getRowModel().rows.map((row) => ( 
+                <TableRow
+                  key={row.id}
+                className={cn("h-12 transition-colors", row.getIsSelected() && "bg-muted/50")}>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell
+                      key={cell.id}
+                      className={cn(
+                        "py-2 px-3", "[&>*:first-child]:flex [&>*:first-child]:items-center [&>*:first-child]:justify-start",
+                        cell.column.columnDef.meta?.cellClassName,
+                        cell.column.columnDef.meta?.showBorder && "border-x",
+                      )}>
+                    {
+                    flexRender(cell.column.columnDef.cell, cell.getContext())
+                    }
+                    </TableCell>
+                  ))}
+
+                </TableRow>
+              ))
+            ) : ( 
+              <TableRow>
+                <TableCell colSpan={columns.length} className="h-24 text-center">
+                  No results.
+                </TableCell>
+              </TableRow>
+            )
+              
+            }
+          </TableBody>
+        </Table>
+      </div>
 
       {/* Table Footer */}
      <TableFooter table={table} pageSizeOptions={pageSizeOptions} />
@@ -587,9 +718,25 @@ export function DefaultRowActions<TData>({
   onCopy = (row) => {
     navigator.clipboard.writeText(JSON.stringify(row, null, 2));
     toast.info("Row data copied to clipboard");
+    // Clear selection after action
+    if (row.getIsSelected()) {
+      row.toggleSelected(false);
+    }
   },
-  onEdit = (row) => toast.info("Edit row"),
-  onDelete = (row) => toast.info("Delete row"),
+  onEdit = (row) => {
+    toast.info("Edit row");
+    // Clear selection after action
+    if (row.getIsSelected()) {
+      row.toggleSelected(false);
+    }
+  },
+  onDelete = (row) => {
+    toast.info("Delete row");
+    // Clear selection after action
+    if (row.getIsSelected()) {
+      row.toggleSelected(false);
+    }
+  },
   copyText = "Copy",
   editText = "Edit",
   deleteText = "Delete",
