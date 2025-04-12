@@ -2,12 +2,21 @@
 
 import * as React from "react"
 import { Check, ChevronsUpDown, Search } from "lucide-react"
+import { forwardRef, useEffect, useState } from "react"
+import { useMediaQuery } from "@/hooks/use-media-query"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Input } from "@/components/ui/input"
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue
+} from "@/components/ui/select"
 
 interface SearchableColumn {
   id: string
@@ -17,7 +26,7 @@ interface SearchableColumn {
 interface SearchCommandProps {
   columns: SearchableColumn[]
   selectedColumn: string
-  onColumnChange: (column: string) => void
+  onColumnChange?: (column: string) => void
   searchValue: string
   onSearchChange: (value: string) => void
   placeholder?: string
@@ -33,77 +42,36 @@ export function SearchCommand({
   placeholder = "Search...",
   showColumnSelection = true,
 }: SearchCommandProps) {
-  const [open, setOpen] = React.useState(false)
-  const selectedColumnLabel = React.useMemo(() => {
-    return columns.find((col) => col.id === selectedColumn)?.label || "All"
-  }, [columns, selectedColumn])
+  const [open, setOpen] = useState(false)
+  const isDesktop = useMediaQuery("(min-width: 768px)")
+
+  // Find the currently selected column
+  const selectedColumnLabel = columns.find(col => col.id === selectedColumn)?.label || "All columns"
 
   return (
-    <div className="flex w-full items-center space-x-0">
-      {/* Column selector on the left - only shown if showColumnSelection is true */}
+    <div className={cn("flex items-center gap-2", isDesktop ? "" : "w-full")}>
       {showColumnSelection && (
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              role="combobox"
-              aria-expanded={open}
-              className="rounded-r-none border-r-0 relative w-[120px] justify-between"
-            >
-              <span className="line-clamp-1 text-sm">{selectedColumnLabel}</span>
-              <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-[200px] p-0" align="start">
-            <Command>
-              <CommandInput placeholder="Search column..." />
-              <CommandList>
-                <CommandEmpty>No column found.</CommandEmpty>
-                <CommandGroup>
-                  <CommandItem
-                    value="all"
-                    onSelect={() => {
-                      onColumnChange("all")
-                      setOpen(false)
-                    }}
-                  >
-                    <Check className={cn("mr-2 h-4 w-4", selectedColumn === "all" ? "opacity-100" : "opacity-0")} />
-                    All
-                  </CommandItem>
-                  {columns.map((column) => (
-                    <CommandItem
-                      key={column.id}
-                      value={column.id}
-                      onSelect={() => {
-                        onColumnChange(column.id)
-                        setOpen(false)
-                      }}
-                    >
-                      <Check
-                        className={cn("mr-2 h-4 w-4", selectedColumn === column.id ? "opacity-100" : "opacity-0")}
-                      />
-                      {column.label}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
+        <Select defaultValue={selectedColumn} onValueChange={onColumnChange}>
+          <SelectTrigger className="w-[180px] h-9">
+            <SelectValue placeholder="Search in..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All columns</SelectItem>
+            {columns.map((column) => (
+              <SelectItem key={column.id} value={column.id}>
+                {column.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       )}
-
-      {/* Search input on the right */}
-      <div className="relative flex-1">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+      
+      <div className={cn("relative w-full", !isDesktop && "flex-1")}>
         <Input
-          type="search"
           placeholder={placeholder}
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
-          className={cn(
-            "w-full pl-9", 
-            showColumnSelection ? "rounded-l-none" : "rounded-lg"
-          )}
+          className={cn("h-9", isDesktop ? "max-w-sm" : "w-full")}
         />
       </div>
     </div>

@@ -55,6 +55,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useCallback,
 } from 'react'
 import type { DateRange } from 'react-day-picker'
 
@@ -96,7 +97,7 @@ export function ActiveFiltersMobileContainer({
   const [showRightBlur, setShowRightBlur] = useState(true)
 
   // Check if there's content to scroll and update blur states
-  const checkScroll = () => {
+  const checkScroll = useCallback(() => {
     if (scrollContainerRef.current) {
       const { scrollLeft, scrollWidth, clientWidth } =
         scrollContainerRef.current
@@ -108,7 +109,7 @@ export function ActiveFiltersMobileContainer({
       // Add a small buffer (1px) to account for rounding errors
       setShowRightBlur(scrollLeft + clientWidth < scrollWidth - 1)
     }
-  }
+  }, [])
 
   // Log blur states for debugging
   // useEffect(() => {
@@ -126,12 +127,12 @@ export function ActiveFiltersMobileContainer({
         resizeObserver.disconnect()
       }
     }
-  }, [])
+  }, [checkScroll])
 
   // Update blur states when children change
   useEffect(() => {
     checkScroll()
-  }, [children])
+  }, [checkScroll])
 
   return (
     <div className="relative w-full overflow-x-hidden">
@@ -510,7 +511,12 @@ export function FilterOperatorController<TData>({
   column,
   closeController,
 }: FilterOperatorControllerProps<TData>) {
-  const { type } = column.columnDef.meta!
+  const meta = column.columnDef.meta;
+  const type = meta?.type;
+  
+  if (!type) {
+    return null;
+  }
 
   switch (type) {
     case 'option':
@@ -900,7 +906,8 @@ export function FilterValueOptionDisplay<TData, TValue>({
     <div className="inline-flex items-center gap-0.5">
       {hasOptionIcons &&
         take(selected, 3).map(({ value, icon }) => {
-          const Icon = icon!
+          if (!icon) return null;
+          const Icon = icon;
           return isValidElement(Icon) ? (
             Icon
           ) : (
@@ -983,7 +990,8 @@ export function FilterValueMultiOptionDisplay<TData, TValue>({
       {hasOptionIcons && (
         <div key="icons" className="inline-flex items-center gap-0.5">
           {take(selected, 3).map(({ value, icon }) => {
-            const Icon = icon!
+            if (!icon) return null;
+            const Icon = icon;
             return isValidElement(Icon) ? (
               cloneElement(Icon, { key: value })
             ) : (
@@ -1204,10 +1212,14 @@ export function FilterValueOptionController<TData, TValue>({
 
   const optionsCount: Record<ColumnOption['value'], number> = columnVals.reduce(
     (acc, curr) => {
-      const { value } = columnMeta.transformOptionFn
-        ? columnMeta.transformOptionFn(curr as ElementType<NonNullable<TValue>>)
-        : { value: curr as string }
-
+      const value = columnMeta.options
+        ? (curr as string)
+        : columnMeta.transformOptionFn
+          ? columnMeta.transformOptionFn(
+              curr as ElementType<NonNullable<TValue>>,
+            ).value
+          : String(curr);
+  
       acc[value] = (acc[value] ?? 0) + 1
       return acc
     },
@@ -1350,10 +1362,12 @@ export function FilterValueMultiOptionController<
     (acc, curr) => {
       const value = columnMeta.options
         ? (curr as string)
-        : columnMeta.transformOptionFn!(
-            curr as ElementType<NonNullable<TValue>>,
-          ).value
-
+        : columnMeta.transformOptionFn
+          ? columnMeta.transformOptionFn(
+              curr as ElementType<NonNullable<TValue>>,
+            ).value
+          : String(curr);
+  
       acc[value] = (acc[value] ?? 0) + 1
       return acc
     },
