@@ -1,8 +1,8 @@
-import { FilterFn } from "@tanstack/react-table"
+import type { FilterFn } from "@tanstack/react-table"
 import { rankItem, type RankingInfo } from "@tanstack/match-sorter-utils"
 
 // Declare module extensions
-declare module "@tanstack/table-core" {
+declare module "@tanstack/react-table" {
   interface FilterFns {
     fuzzy: FilterFn<unknown>
   }
@@ -13,7 +13,8 @@ declare module "@tanstack/table-core" {
 }
 
 // Type-safe fuzzy filter function
-export const fuzzyFilter: FilterFn<unknown> = (row, columnId, value, addMeta) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const fuzzyFilter: FilterFn<any> = (row, columnId, value, addMeta) => {
   // Skip filter if value is empty
   if (!value || value === "") return true
 
@@ -29,7 +30,7 @@ export const fuzzyFilter: FilterFn<unknown> = (row, columnId, value, addMeta) =>
                 typeof val === 'boolean') &&
                !['id', 'select', 'actions'].includes(key);
       })
-      .map(([_, val]) => String(val).toLowerCase());
+      .map(([, val]) => String(val).toLowerCase());
     
     // Convert search value to lowercase
     const searchValue = String(value).toLowerCase();

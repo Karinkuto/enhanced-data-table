@@ -58,7 +58,7 @@ import {
 } from 'react'
 import type { DateRange } from 'react-day-picker'
 
-export function DataTableFilter<TData, TValue>({
+export function DataTableFilter<TData>({
   table,
 }: { table: Table<TData> }) {
   const isMobile = useMobile()
@@ -272,13 +272,19 @@ export function FilterableColumn<TData>({
   table: Table<TData>
   setProperty: (value: string) => void
 }) {
-  const Icon = column.columnDef.meta?.icon!
+  const meta = column.columnDef.meta;
+  // Safety check - if no icon, use a fallback or return null
+  if (!meta?.icon) {
+    return null;
+  }
+  const Icon = meta.icon;
+  
   return (
     <CommandItem onSelect={() => setProperty(column.id)} className="group">
       <div className="flex w-full items-center justify-between">
         <div className="inline-flex items-center gap-1.5">
           {<Icon strokeWidth={2.25} className="size-4" />}
-          <span>{column.columnDef.meta?.displayName}</span>
+          <span>{meta?.displayName || column.id}</span>
         </div>
         <ArrowRight className="size-4 opacity-0 group-aria-selected:opacity-100" />
       </div>
@@ -667,24 +673,32 @@ function FilterOperatorNumberController<TData>({
   column,
   closeController,
 }: FilterOperatorControllerProps<TData>) {
-  const filter = column.getFilterValue() as FilterModel<'number', TData>
-
+  // Define proper types instead of using variables just for types
+  type NumberFilterModel = FilterModel<'number', TData>;
+  type NumberOperator = NumberFilterModel['operator'];
+  
   // Show all related operators
-  const relatedFilters = Object.values(numberFilterDetails)
-  const relatedFilterOperators = relatedFilters.map((r) => r.value)
+  const relatedFilters = Object.values(numberFilterDetails);
 
-  const changeOperator = (value: (typeof relatedFilterOperators)[number]) => {
-    column.setFilterValue((old: typeof filter) => {
+  const changeOperator = (value: NumberOperator) => {
+    column.setFilterValue((old: NumberFilterModel | undefined) => {
+      if (!old) {
+        return {
+          operator: value,
+          values: [],
+        };
+      }
+      
       // Clear out the second value when switching to single-input operators
-      const target = numberFilterDetails[value].target
+      const target = numberFilterDetails[value].target;
 
       const newValues =
-        target === 'single' ? [old.values[0]] : createNumberRange(old.values)
+        target === 'single' ? [old.values[0]] : createNumberRange(old.values);
 
-      return { ...old, operator: value, values: newValues }
-    })
-    closeController()
-  }
+      return { ...old, operator: value, values: newValues };
+    });
+    closeController();
+  };
 
   return (
     <div>
@@ -700,7 +714,7 @@ function FilterOperatorNumberController<TData>({
         ))}
       </CommandGroup>
     </div>
-  )
+  );
 }
 
 /****** Property Filter Value ******/
@@ -1128,10 +1142,8 @@ export function FitlerValueController<TData, TValue>({
     case 'number':
       return (
         <FilterValueNumberController
-          id={id}
           column={column}
           columnMeta={columnMeta}
-          table={table}
         />
       )
     default:
@@ -1558,10 +1570,9 @@ export function FilterValueTextController<TData, TValue>({
 }
 
 export function FilterValueNumberController<TData, TValue>({
-  table,
   column,
   columnMeta,
-}: ProperFilterValueMenuProps<TData, TValue>) {
+}: Omit<ProperFilterValueMenuProps<TData, TValue>, 'table' | 'id'>) {
   const maxFromMeta = columnMeta.max
   const cappedMax = maxFromMeta ?? Number.MAX_SAFE_INTEGER
 

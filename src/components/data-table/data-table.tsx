@@ -10,7 +10,7 @@ import {
   type Row,
   type SortingState,
   type VisibilityState,
-  flexRender, type RowData,
+  flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
@@ -18,7 +18,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 import { ChevronDownIcon, ChevronUpIcon, MoreVertical, FileDownIcon, UserPlusIcon, UserMinusIcon } from "lucide-react"
-import { useId, useState, useEffect, useTransition } from "react"
+import { useState, useEffect, useTransition } from "react"
 import {
   DropdownMenu,  
   DropdownMenuContent,
@@ -34,50 +34,64 @@ import { Button } from "@/components/ui/button"
 import { MobileDataView, } from "@/components/data-table/mobile-data-view"
 import { toast } from "sonner"
 import React, { useMemo } from "react"
-import { Copy, Edit, Trash } from "lucide-react"
+import { Trash } from "lucide-react"
 import { fuzzyFilter } from "@/lib/fuzzy-filter"
 import { FloatingSelectionController } from "./floating-selection-controller"
 
-// Custom filter function for multi-column searching
+// Extend the ColumnMeta interface with our additional properties
 declare module "@tanstack/react-table" {
-  interface ColumnMeta<TData extends RowData, TValue> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData, TValue> {
     cellClassName?: string;
     showBorder?: boolean;
   }
 }
 
-const defaultActionColumn: ColumnDef<unknown> = {
-  id: "actions"
-}
-
-export const multiColumnFilterFn: FilterFn<unknown> = (row, columnId, filterValue) => {
-  if (!filterValue) return true
-  
-  // If searching all columns
-  if (columnId === "all") {
-    const searchableRowContent = Object.values(row.original)
-      .filter((val) => typeof val === "string")
-      .join(" ") 
-      .toLowerCase()
-    const searchTerm = (filterValue ?? "").toLowerCase()
-    return searchableRowContent.includes(searchTerm)
+// Define custom filter functions
+declare module "@tanstack/react-table" {
+  interface FilterFns {
+    multiColumn: FilterFn<unknown>
+    category: FilterFn<unknown>
   }
+}
 
-  // If searching a specific column 
-  const value = row.getValue(columnId) as string
-  if (typeof value === "string") {
-    return value.toLowerCase().includes((filterValue ?? "").toLowerCase())
+// Create a generic multi-column filter
+export function createMultiColumnFilterFn<T>(): FilterFn<T> {
+  return (row, columnId, filterValue) => {
+    if (!filterValue) return true
+    
+    // If searching all columns
+    if (columnId === "all") {
+      const searchableRowContent = Object.values(row.original as Record<string, unknown>)
+        .filter((val) => typeof val === "string")
+        .join(" ") 
+        .toLowerCase()
+      const searchTerm = (filterValue ?? "").toLowerCase()
+      return searchableRowContent.includes(searchTerm)
+    }
+
+    // If searching a specific column 
+    const value = row.getValue(columnId) as string
+    if (typeof value === "string") {
+      return value.toLowerCase().includes((filterValue ?? "").toLowerCase())
+    }
+    
+    return false
   }
-  
-  return false
 }
 
-// Filter function for status or any categorical field
-export const categoryFilterFn: FilterFn<unknown> = (row, columnId, filterValue: string[]) => {
-  if (!filterValue?.length) return true
-  const value = row.getValue(columnId) as string
-  return filterValue.includes(value)
+// Create a generic category filter
+export function createCategoryFilterFn<T>(): FilterFn<T> {
+  return (row, columnId, filterValue: string[]) => {
+    if (!filterValue?.length) return true
+    const value = row.getValue(columnId) as string
+    return filterValue.includes(value)
+  }
 }
+
+// For backward compatibility
+export const multiColumnFilterFn = createMultiColumnFilterFn<unknown>()
+export const categoryFilterFn = createCategoryFilterFn<unknown>()
 
 // Row action type for kebab menu
 export interface RowAction<TData> {
@@ -126,15 +140,6 @@ export interface DataTableProps<TData> {
   mobileViewConfig?: MobileViewConfig
   // Custom batch actions for mobile view
   mobileBatchActions?: BatchAction<TData>[]
-  // Table toolbar customization
-  tableToolbarProps?: {
-    onFilter?: () => void;
-    onManageColumns?: () => void;
-    filterText?: string;
-    columnsText?: string;
-    showFilterButton?: boolean;
-    showColumnsButton?: boolean;
-  }
 }
 
 // Create a type for the cell to avoid 'any' type
@@ -177,10 +182,8 @@ export function DataTable<TData>({
   searchableColumns,
   mobileViewConfig,
   mobileBatchActions,
-  tableToolbarProps,
 }: DataTableProps<TData>) {
 
-  const id = useId()
   const isMobile = useIsMobile()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const defaultSorting = initialSorting ?? (columns.length > 0 && columns[0].id ? [{
@@ -230,9 +233,14 @@ export function DataTable<TData>({
     }
   }, [isMobile, selectedSearchColumn])
 
-  const table = useReactTable({
+  // Use a typed version of the fuzzy filter for this component
+  const typedFuzzyFilter: FilterFn<TData> = (row, columnId, value, addMeta) => {
+    return fuzzyFilter(row, columnId, value, addMeta);
+  };
+
+  const table = useReactTable<TData>({
     data, 
-    columns, 
+    columns: columns as ColumnDef<TData, unknown>[], 
     
     getCoreRowModel: getCoreRowModel(), 
     getSortedRowModel: getSortedRowModel(),
@@ -245,11 +253,11 @@ export function DataTable<TData>({
     onColumnVisibilityChange: setColumnVisibility,
     getFilteredRowModel: getFilteredRowModel(),
     filterFns: {
-      multiColumn: multiColumnFilterFn,
-      category: categoryFilterFn,
-      fuzzy: fuzzyFilter,
+      multiColumn: multiColumnFilterFn as FilterFn<TData>,
+      category: categoryFilterFn as FilterFn<TData>,
+      fuzzy: typedFuzzyFilter,
     },
-    globalFilterFn: fuzzyFilter,
+    globalFilterFn: typedFuzzyFilter,
     state: { 
       sorting,
       pagination, 
@@ -381,7 +389,7 @@ export function DataTable<TData>({
     {
       label: "Export",
       icon: <FileDownIcon className="h-3.5 w-3.5" />,
-      onClick: (selectedIds: string[]) => {
+      onClick: () => {
         const selectedRows = table.getSelectedRowModel().rows.map(row => row.original);
         navigator.clipboard.writeText(JSON.stringify(selectedRows, null, 2));
         toast.info("Selected rows copied to clipboard");
@@ -425,9 +433,8 @@ export function DataTable<TData>({
     ? mobileBatchActions.map(action => ({
         label: action.label,
         icon: action.icon,
-        onClick: (selectedIds: string[]) => {
+        onClick: () => {
           const selectedRows = table.getSelectedRowModel().rows
-            .filter(row => selectedIds.includes(row.id))
             .map(row => row.original);
           return action.onClick(selectedRows);
         },
@@ -441,7 +448,7 @@ export function DataTable<TData>({
     icon: React.ReactNode
     onClick: (selectedIds: string[]) => Promise<void> | void 
     hotkey?: string
-  }, index: number) => {
+  }) => {
     setCurrentAction(action.label)
     startTransition(async () => {
       try {
@@ -715,23 +722,31 @@ export interface DefaultRowActionsProps<TData> {
 
 export function DefaultRowActions<TData>({
   row,
-  onCopy = (row) => {
-    navigator.clipboard.writeText(JSON.stringify(row, null, 2));
+  onCopy = (
+    _data
+  ) => {
+    navigator.clipboard.writeText(JSON.stringify(_data, null, 2));
     toast.info("Row data copied to clipboard");
     // Clear selection after action
     if (row.getIsSelected()) {
       row.toggleSelected(false);
     }
   },
-  onEdit = (row) => {
+  onEdit = (
+    _data
+  ) => {
     toast.info("Edit row");
+    console.log("Editing data:", _data);
     // Clear selection after action
     if (row.getIsSelected()) {
       row.toggleSelected(false);
     }
   },
-  onDelete = (row) => {
+  onDelete = (
+    _data
+  ) => {
     toast.info("Delete row");
+    console.log("Deleting data:", _data);
     // Clear selection after action
     if (row.getIsSelected()) {
       row.toggleSelected(false);

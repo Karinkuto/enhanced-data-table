@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
-import { DataTable, DefaultRowActions, categoryFilterFn, multiColumnFilterFn, type RowAction, type BatchAction } from "@/components/data-table/data-table"
+import { DataTable, DefaultRowActions, createCategoryFilterFn, createMultiColumnFilterFn, type RowAction, type BatchAction } from "@/components/data-table/data-table"
 import type { ColumnDef } from "@tanstack/react-table"
 import { cn } from "@/lib/utils"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Edit, Trash, FileText, Copy, Filter, Columns, RefreshCcw, FileDown, CheckSquare, UserX } from "lucide-react"
+import { Edit, Trash, FileText, Copy, FileDown, CheckSquare, UserX } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { toast } from "sonner"
 
@@ -27,8 +27,6 @@ type User = {
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
-  const [filterModalOpen, setFilterModalOpen] = useState(false);
-  const [columnsModalOpen, setColumnsModalOpen] = useState(false);
 
   useEffect(() => {
     async function fetchUsers() {
@@ -87,7 +85,7 @@ export default function UsersPage() {
       accessorKey: "name",
       cell: ({ row }) => <div className="font-medium">{row.getValue("name")}</div>,
       size: 180,
-      filterFn: multiColumnFilterFn,
+      filterFn: createMultiColumnFilterFn<User>(),
       enableHiding: false,
     },
     {
@@ -164,7 +162,7 @@ export default function UsersPage() {
         )
       },
       size: 100,
-      filterFn: categoryFilterFn,
+      filterFn: createCategoryFilterFn<User>(),
     },
     {
       header: "Balance",
@@ -300,19 +298,6 @@ export default function UsersPage() {
     }
   ];
 
-  // Define custom handlers for filter and column management
-  const handleFilterClick = () => {
-    setFilterModalOpen(true);
-    toast.info("Filter dialog would open here");
-    // Implementation would open a custom filter UI
-  };
-
-  const handleColumnsClick = () => {
-    setColumnsModalOpen(true);
-    toast.info("Column management dialog would open here");
-    // Implementation would open column visibility controls
-  };
-
   // Configure mobile view layout
   const mobileViewConfig = {
     headerColumnId: "name",
@@ -360,14 +345,6 @@ export default function UsersPage() {
         searchableColumns={searchableColumns}
         mobileViewConfig={mobileViewConfig}
         mobileBatchActions={mobileBatchActions}
-        tableToolbarProps={{
-          onFilter: handleFilterClick,
-          onManageColumns: handleColumnsClick,
-          filterText: "Filters",
-          columnsText: "Columns",
-          showFilterButton: true,
-          showColumnsButton: true,
-        }}
       />
     </div>
   )

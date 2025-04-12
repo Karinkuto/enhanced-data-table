@@ -1,5 +1,5 @@
 import '@tanstack/table-core'
-import type { AccessorFn, Column, Row, RowData } from '@tanstack/react-table'
+import type { AccessorFn, Column, Row } from '@tanstack/react-table'
 import type { ColumnMeta, Table } from '@tanstack/react-table'
 import {
   endOfDay,
@@ -15,7 +15,8 @@ import { intersection, uniq } from './array'
 export type ElementType<T> = T extends (infer U)[] ? U : T
 
 declare module '@tanstack/react-table' {
-  interface ColumnMeta<TData extends RowData, TValue> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData, TValue> {
     /* The display name of the column. */
     displayName: string
 
@@ -753,9 +754,9 @@ export function dateFilterFn<TData>(
   return __dateFilterFn(valueStr, filterValue)
 }
 
-export function __dateFilterFn<TData>(
+export function __dateFilterFn(
   inputData: Date,
-  filterValue: FilterModel<'date', TData>,
+  filterValue: FilterModel<'date', unknown>,
 ) {
   if (!filterValue || filterValue.values.length === 0) return true
 

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Check, Loader, X, FileDownIcon, UserPlusIcon, UserMinusIcon } from "lucide-react"
+import { Check, Loader, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 
-export interface FloatingSelectionControllerProps<TData> {
+export interface FloatingSelectionControllerProps {
   selectedItems: string[]
   allItemIds: string[]
   onSelectAll: () => void
@@ -41,7 +41,7 @@ export interface FloatingSelectionControllerProps<TData> {
   className?: string
 }
 
-export function FloatingSelectionController<TData>({
+export function FloatingSelectionController({
   selectedItems,
   allItemIds,
   onSelectAll,
@@ -53,7 +53,7 @@ export function FloatingSelectionController<TData>({
   displayMode = "compact",
   position = "fixed",
   className
-}: FloatingSelectionControllerProps<TData>) {
+}: FloatingSelectionControllerProps) {
   const [mounted, setMounted] = React.useState(false)
 
   // Handle mounting for SSR compatibility
@@ -232,9 +232,12 @@ export function FloatingSelectionController<TData>({
                         {isPending && currentAction === action.label ? (
                           <Loader className="size-3.5 animate-spin mr-1.5" aria-hidden="true" />
                         ) : (
-                          React.cloneElement(action.icon as React.ReactElement, { 
-                            className: "size-3.5 mr-1.5"
-                          })
+                          // Make sure the icon is a valid ReactElement before cloning
+                          React.isValidElement(action.icon) ? 
+                            React.cloneElement(action.icon, { 
+                              className: "size-3.5 mr-1.5" 
+                            } as React.HTMLAttributes<HTMLElement>) : 
+                            <span className="size-3.5 mr-1.5">{action.icon}</span>
                         )}
                         <span>{action.label}</span>
                       </Button>
@@ -260,9 +263,12 @@ export function FloatingSelectionController<TData>({
                         {isPending && currentAction === action.label ? (
                           <Loader className="size-4 animate-spin" aria-hidden="true" />
                         ) : (
-                          React.cloneElement(action.icon as React.ReactElement, { 
-                            className: "size-4"
-                          })
+                          // Make sure the icon is a valid ReactElement before cloning
+                          React.isValidElement(action.icon) ? 
+                            React.cloneElement(action.icon, { 
+                              className: "size-4" 
+                            } as React.HTMLAttributes<HTMLElement>) : 
+                            <span className="size-4">{action.icon}</span>
                         )}
                       </Button>
                     </TooltipTrigger>
