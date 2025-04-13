@@ -2,14 +2,13 @@ import type { Table } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { ListFilterIcon, PlusIcon, ArrowRight, Filter, X, Loader } from "lucide-react";
+import {  PlusIcon, ArrowRight, Filter, X } from "lucide-react";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { SearchCommand } from "./search-command";
 import type { SearchableColumn } from "./data-table";
 import { 
   ActiveFilters, 
-  FilterActions, 
   FitlerValueController 
 } from "@/components/data-table-filter";
 import { 
@@ -28,18 +27,14 @@ import {
 import { 
   getColumn, 
   getColumnMeta, 
-  isFilterableColumn
+  isFilterableColumn,
+  type Column
 } from "@/lib/filters";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Drawer,
   DrawerClose,
   DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
@@ -65,9 +60,6 @@ function useIsMobile() {
   
   return isMobile;
 }
-
-// Check if code is running in browser
-const isBrowser = typeof window !== 'undefined';
 
 interface TableToolbarProps<TData> {
   table: Table<TData>;
@@ -116,7 +108,6 @@ function MobileFilterContent<TData>({
   table,
   property,
   setProperty,
-  onClose,
 }: {
   table: Table<TData>;
   property: string | undefined;

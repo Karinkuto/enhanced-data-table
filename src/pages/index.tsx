@@ -2,7 +2,15 @@
 
 import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
-import { DataTable, DefaultRowActions, createCategoryFilterFn, createMultiColumnFilterFn, type RowAction, type BatchAction } from "@/components/data-table/data-table"
+import { 
+  DataTable, 
+  DefaultRowActions, 
+  // Commented out unused imports
+  // createCategoryFilterFn, 
+  // createMultiColumnFilterFn, 
+  type RowAction, 
+  type BatchAction 
+} from "@/components/data-table/data-table"
 import type { ColumnDef } from "@tanstack/react-table"
 import { cn } from "@/lib/utils"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -428,7 +436,7 @@ export default function UsersPage() {
         onAddItem={handleAddUser}
         addButtonText="Add New"
         searchPlaceholder="Search users..."
-        searchColumnId="name"
+        searchColumnId="all"
         initialPageSize={5}
         rowActions={rowActions}
         searchableColumns={searchableColumns}
