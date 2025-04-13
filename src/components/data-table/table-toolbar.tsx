@@ -4,11 +4,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { PlusIcon, Filter } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
-import { toast } from "sonner";
 import { SearchCommand } from "./search-command";
 import type { SearchableColumn } from "./data-table";
 import { TableFilterDialog } from "./table-filter-dialog";
 import { Badge } from "@/components/ui/badge";
+import { ColumnVisibilityPopover } from "./column-visibility-popover";
 
 // Local implementation of useIsMobile with 650px breakpoint
 function useIsMobile() {
@@ -200,19 +200,7 @@ export function TableToolbar<TData>({
 
               {/* Columns button - Hide in mobile view */}
               {!isMobile && (
-                <Button
-                  variant="outline"
-                  className="flex items-center gap-1.5 h-9 font-medium"
-                  onClick={() => toast.info("Column management coming soon")}
-                >
-                  <div className="grid grid-cols-2 gap-0.5 h-4 w-4">
-                    <div className="bg-current rounded-sm" />
-                    <div className="bg-current rounded-sm" />
-                    <div className="bg-current rounded-sm" />
-                    <div className="bg-current rounded-sm" />
-                  </div>
-                  Columns
-                </Button>
+                <ColumnVisibilityPopover table={table} />
               )}
             </div>
           </div>
