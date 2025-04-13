@@ -38,3 +38,84 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/pages/building-your-application/deploying) for more details.
+
+---
+
+## DataTable Component
+
+A flexible, reusable table component supporting both client-side and server-side pagination, filtering, sorting, and search, with a built-in loading skeleton.
+
+### Features
+
+- Generic and type-safe for any data shape
+- Client-side and server-side modes (toggle with a single prop)
+- Pagination, filtering, sorting, and search
+- Mobile and desktop responsive layouts
+- Customizable toolbar, batch actions, and row actions
+- Loading skeleton for async/server-side data fetching
+- Backward compatible with previous client-side usage
+
+### Props
+
+| Prop            | Type                                      | Required | Description                                                                 |
+|-----------------|-------------------------------------------|----------|-----------------------------------------------------------------------------|
+| data            | TData[]                                   | Yes      | Data to display (current page if server-side, full array if client-side)     |
+| columns         | ColumnDef<TData>[]                        | Yes      | Table columns (TanStack Table format)                                       |
+| serverSide      | boolean                                   | No       | Enables server-side mode (default: false)                                   |
+| state           | {pagination, filters, sorting, search}    | No       | Controlled state for server-side mode                                       |
+| onStateChange   | (state) => void                           | No       | State change handler for server-side mode                                   |
+| loading         | boolean                                   | No       | Show loading skeleton when true                                             |
+| ...             | ...other props (toolbar, actions, etc.)   | No       | See source for full list                                                    |
+
+### Usage
+
+#### Client-side (default)
+
+```tsx
+<DataTable
+  data={allData}
+  columns={columns}
+/>
+```
+
+#### Server-side
+
+```tsx
+const [tableState, setTableState] = useState({
+  pagination: { pageIndex: 0, pageSize: 10 },
+  filters: [],
+  sorting: [],
+  search: "",
+});
+const [data, setData] = useState([]);
+const [loading, setLoading] = useState(false);
+
+useEffect(() => {
+  setLoading(true);
+  fetchServerData(tableState).then(newData => {
+    setData(newData);
+    setLoading(false);
+  });
+}, [tableState]);
+
+<DataTable
+  data={data}
+  columns={columns}
+  serverSide
+  state={tableState}
+  onStateChange={setTableState}
+  loading={loading}
+/>
+```
+
+### Loading Skeleton
+
+When the `loading` prop is true, the table displays animated skeleton rows using the `Skeleton` component from `src/components/ui/skeleton.tsx`. This provides a smooth user experience during async data fetching.
+
+### Backward Compatibility
+
+If `serverSide` is not set, the DataTable behaves exactly as before, using internal state for all features. All existing usages remain valid.
+
+### More
+
+See the source code in `src/components/data-table/data-table.tsx` for advanced usage, customization, and extension points.

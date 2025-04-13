@@ -37,6 +37,7 @@ import React, { useMemo } from "react"
 import { Trash } from "lucide-react"
 import { fuzzyFilter } from "@/lib/fuzzy-filter"
 import { FloatingSelectionController } from "./floating-selection-controller"
+import { Skeleton } from "@/components/ui/skeleton"
 
 // Extend the ColumnMeta interface with our additional properties
 declare module "@tanstack/react-table" {
@@ -123,6 +124,14 @@ export interface BatchAction<TData> {
   hotkey?: string;
 }
 
+// New: TableState type for server-side mode
+export type DataTableState = {
+  pagination: PaginationState;
+  filters: ColumnFiltersState;
+  sorting: SortingState;
+  search: string;
+};
+
 export interface DataTableProps<TData> {
   data: TData[]
   columns: ColumnDef<TData>[]
@@ -140,6 +149,11 @@ export interface DataTableProps<TData> {
   mobileViewConfig?: MobileViewConfig
   // Custom batch actions for mobile view
   mobileBatchActions?: BatchAction<TData>[]
+  // Server-side mode
+  serverSide?: boolean
+  state?: DataTableState
+  onStateChange?: (state: DataTableState) => void
+  loading?: boolean
 }
 
 // Create a type for the cell to avoid 'any' type
@@ -182,24 +196,80 @@ export function DataTable<TData>({
   searchableColumns,
   mobileViewConfig,
   mobileBatchActions,
+  serverSide = false,
+  state,
+  onStateChange,
+  loading = false,
 }: DataTableProps<TData>) {
 
-  const isMobile = useIsMobile()
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const isMobile = useIsMobile();
+
+  // Controlled/uncontrolled state logic
+  // Internal state for client-side mode
+  const [internalColumnFilters, setInternalColumnFilters] = useState<ColumnFiltersState>([]);
   const defaultSorting = initialSorting ?? (columns.length > 0 && columns[0].id ? [{
     id: columns[0].id,
     desc: false,
   }]
-
    : []);
-  const [sorting, setSorting] = useState<SortingState>(defaultSorting);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
-
-  const [pagination, setPagination] = useState<PaginationState>({
+  const [internalSorting, setInternalSorting] = useState<SortingState>(defaultSorting);
+  const [internalColumnVisibility, setInternalColumnVisibility] = useState<VisibilityState>({});
+  const [internalPagination, setInternalPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: initialPageSize,
-  })
-  
+  });
+  const [internalSearchValue, setInternalSearchValue] = useState<string>("");
+
+  // Use controlled state if serverSide, otherwise use internal state
+  const pagination = serverSide && state ? state.pagination : internalPagination;
+  const columnFilters = serverSide && state ? state.filters : internalColumnFilters;
+  const sorting = serverSide && state ? state.sorting : internalSorting;
+  const searchValue = serverSide && state ? state.search : internalSearchValue;
+
+  // Setters: call onStateChange if serverSide, otherwise update internal state
+  // Helpers to handle both value and updater function for TanStack Table's OnChangeFn
+  function handleControlledChange<T>(
+    current: T,
+    updaterOrValue: T | ((old: T) => T),
+    key: keyof DataTableState
+  ) {
+    const newValue = typeof updaterOrValue === "function"
+      ? (updaterOrValue as (old: T) => T)(current)
+      : updaterOrValue;
+    onStateChange?.({ ...state!, [key]: newValue });
+  }
+
+  const setPagination = serverSide && onStateChange
+    ? (p: PaginationState | ((old: PaginationState) => PaginationState)) =>
+        handleControlledChange<PaginationState>(
+          pagination,
+          p,
+          "pagination"
+        )
+    : setInternalPagination;
+
+  const setColumnFilters = serverSide && onStateChange
+    ? (f: ColumnFiltersState | ((old: ColumnFiltersState) => ColumnFiltersState)) =>
+        handleControlledChange<ColumnFiltersState>(
+          columnFilters,
+          f,
+          "filters"
+        )
+    : setInternalColumnFilters;
+
+  const setSorting = serverSide && onStateChange
+    ? (s: SortingState | ((old: SortingState) => SortingState)) =>
+        handleControlledChange<SortingState>(
+          sorting,
+          s,
+          "sorting"
+        )
+    : setInternalSorting;
+  const setSearchValue = serverSide && onStateChange
+    ? (s: string) => onStateChange({ ...state!, search: s })
+    : setInternalSearchValue;
+  const setColumnVisibility = setInternalColumnVisibility; // always internal
+
   // Selection state and batch action handling
   const [isPending, startTransition] = useTransition()
   const [currentAction, setCurrentAction] = useState<string | null>(null)
@@ -224,7 +294,6 @@ export function DataTable<TData>({
   const [selectedSearchColumn, setSelectedSearchColumn] = useState<string>(
     isMobile ? "all" : (searchColumnId || "all")
   )
-  const [searchValue, setSearchValue] = useState<string>("")
 
   // Reset to "all" search if switching to mobile
   useEffect(() => {
@@ -262,9 +331,12 @@ export function DataTable<TData>({
       sorting,
       pagination, 
       columnFilters,
-      columnVisibility,
+      columnVisibility: internalColumnVisibility,
       globalFilter: selectedSearchColumn === "all" ? searchValue : undefined,
     },
+    manualPagination: serverSide,
+    manualFiltering: serverSide,
+    manualSorting: serverSide,
   })
 
   // When search column or value changes, update the column filters
@@ -666,7 +738,17 @@ export function DataTable<TData>({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.length ? (
+            {loading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={`skeleton-row-${i}`}>
+                  {columns.map((col) => (
+                    <TableCell key={col.id || i}>
+                      <Skeleton className="h-4 w-full" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => ( 
                 <TableRow
                   key={row.id}
