@@ -17,27 +17,7 @@ import { cn } from "@/lib/utils";
 import { getColumn, getColumnMeta, isFilterableColumn, type Column } from "@/lib/filters";
 import { ActiveFilters, FitlerValueController } from "@/components/data-table-filter";
 
-// Local implementation of useIsMobile with 650px breakpoint
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const checkIsMobile = () => {
-      setIsMobile(window.innerWidth <= 650); // Mobile breakpoint at 650px
-    };
-
-    // Initial check
-    checkIsMobile();
-
-    // Add event listener for window resize
-    window.addEventListener("resize", checkIsMobile);
-
-    // Cleanup
-    return () => window.removeEventListener("resize", checkIsMobile);
-  }, []);
-
-  return isMobile;
-}
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 
 interface TableFilterDialogProps<TData> {
@@ -207,7 +187,7 @@ export function TableFilterDialog<TData>({
   onOpenChange,
   children,
 }: TableFilterDialogProps<TData>) {
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile(650);
   const [value, setValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 

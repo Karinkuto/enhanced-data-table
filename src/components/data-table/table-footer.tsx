@@ -1,5 +1,6 @@
 "use client"
 
+import { useId } from "react";
 import type { Table } from "@tanstack/react-table"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -7,38 +8,17 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Pagination, PaginationContent, PaginationItem } from "@/components/ui/pagination"
 import { ChevronFirstIcon, ChevronLastIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
-import { useEffect, useState } from "react"
 
 interface TableFooterProps<TData> {
   table: Table<TData>
   pageSizeOptions?: number[]
 }
 
-// Simple isMobile hook to detect mobile screens
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(false);
-  
-  useEffect(() => {
-    const checkIsMobile = () => {
-      setIsMobile(window.innerWidth < 400); // 400px breakpoint for pagination buttons
-    };
-    
-    // Initial check
-    checkIsMobile();
-    
-    // Add event listener for window resize
-    window.addEventListener('resize', checkIsMobile);
-    
-    // Cleanup
-    return () => window.removeEventListener('resize', checkIsMobile);
-  }, []);
-  
-  return isMobile;
-}
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 export function TableFooter<TData>({ table, pageSizeOptions = [5, 10, 25, 50] }: TableFooterProps<TData>) {
-  const id = Math.random().toString(36).substring(7)
-  const isMobile = useIsMobile()
+  const id = useId();
+  const isMobile = useIsMobile(400)
 
   return (
     <Card className="mt-2 p-1">
@@ -154,4 +134,3 @@ export function TableFooter<TData>({ table, pageSizeOptions = [5, 10, 25, 50] }:
     </Card>
   )
 }
-

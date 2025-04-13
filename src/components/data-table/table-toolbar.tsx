@@ -10,27 +10,7 @@ import { TableFilterDialog } from "./table-filter-dialog";
 import { Badge } from "@/components/ui/badge";
 import { ColumnVisibilityPopover } from "./column-visibility-popover";
 
-// Local implementation of useIsMobile with 650px breakpoint
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const checkIsMobile = () => {
-      setIsMobile(window.innerWidth <= 650); // Mobile breakpoint at 650px
-    };
-
-    // Initial check
-    checkIsMobile();
-
-    // Add event listener for window resize
-    window.addEventListener("resize", checkIsMobile);
-
-    // Cleanup
-    return () => window.removeEventListener("resize", checkIsMobile);
-  }, []);
-
-  return isMobile;
-}
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 
 interface TableToolbarProps<TData> {
@@ -67,7 +47,7 @@ export function TableToolbar<TData>({
   searchableColumns = [],
   showColumnSelection = true,
 }: TableToolbarProps<TData>) {
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile(650);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [property, setProperty] = useState<string | undefined>(undefined);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -96,9 +76,23 @@ export function TableToolbar<TData>({
         <div
           className={cn(
             "flex flex-col gap-3",
-            isMobile ? "" : "flex-row items-center",
+            isMobile ? "" : "flex-row items-center"
           )}
         >
+          {/* Add button on far left (desktop only) */}
+          {!isMobile && onAddItem && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                onAddItem();
+              }}
+              className="flex items-center gap-1 mr-3"
+            >
+              <PlusIcon className="h-4 w-4" aria-hidden="true" />
+              {addButtonText}
+            </Button>
+          )}
+
           {/* Search with command */}
           <div className={cn("flex-1", isMobile ? "w-full" : "")}>
             {searchableColumns.length > 0 && (
@@ -119,11 +113,11 @@ export function TableToolbar<TData>({
               "flex items-center",
               isMobile
                 ? "flex-wrap justify-between w-full gap-2"
-                : "gap-3 ml-auto",
+                : "gap-3 ml-auto"
             )}
           >
-            {/* Add button */}
-            {onAddItem && (
+            {/* Add button for mobile (keep in current position) */}
+            {isMobile && onAddItem && (
               <Button
                 variant="outline"
                 onClick={() => {
@@ -139,7 +133,7 @@ export function TableToolbar<TData>({
             <div
               className={cn(
                 "flex items-center flex-wrap",
-                isMobile ? "gap-1 ml-auto" : "gap-2",
+                isMobile ? "gap-1 ml-auto" : "gap-2"
               )}
             >
               {/* Filter section */}
@@ -151,7 +145,7 @@ export function TableToolbar<TData>({
                       variant="outline"
                       className={cn(
                         "flex items-center gap-1.5 h-9 font-medium bg-background border shadow-sm px-3 rounded-md",
-                        hasFilters && "bg-accent text-accent-foreground",
+                        hasFilters && "bg-accent text-accent-foreground"
                       )}
                       onClick={() => setMobileFilterOpen(true)}
                     >
@@ -183,7 +177,7 @@ export function TableToolbar<TData>({
                       variant="outline"
                       className={cn(
                         "flex items-center gap-1.5 h-9 font-medium bg-background border shadow-sm px-3 rounded-md",
-                        hasFilters && "bg-accent text-accent-foreground",
+                        hasFilters && "bg-accent text-accent-foreground"
                       )}
                     >
                       <Filter className="h-4 w-4" aria-hidden="true" />
