@@ -1,5 +1,6 @@
 "use client"
 
+import { useId } from "react";
 import type { Table } from "@tanstack/react-table"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -16,7 +17,7 @@ interface TableFooterProps<TData> {
 import { useIsMobile } from "@/hooks/useIsMobile";
 
 export function TableFooter<TData>({ table, pageSizeOptions = [5, 10, 25, 50] }: TableFooterProps<TData>) {
-  const id = Math.random().toString(36).substring(7)
+  const id = useId();
   const isMobile = useIsMobile(400)
 
   return (

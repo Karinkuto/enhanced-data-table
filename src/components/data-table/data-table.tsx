@@ -254,10 +254,10 @@ export function DataTable<TData>({
   };
 
   const table = useReactTable<TData>({
-    data, 
-    columns: columns as ColumnDef<TData, unknown>[], 
-    
-    getCoreRowModel: getCoreRowModel(), 
+    data,
+    columns: columns as ColumnDef<TData, unknown>[],
+
+    getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     onSortingChange: setSorting,
 
@@ -273,9 +273,9 @@ export function DataTable<TData>({
       fuzzy: typedFuzzyFilter,
     },
     globalFilterFn: typedFuzzyFilter,
-    state: { 
+    state: {
       sorting,
-      pagination, 
+      pagination,
       columnFilters,
       columnVisibility: internalColumnVisibility,
       globalFilter: selectedSearchColumn === "all" ? searchValue : undefined,
@@ -283,7 +283,7 @@ export function DataTable<TData>({
     manualPagination: serverSide,
     manualFiltering: serverSide,
     manualSorting: serverSide,
-  })
+  });
 
   // When search column or value changes, update the column filters
   useEffect(() => {
@@ -402,63 +402,62 @@ export function DataTable<TData>({
       });
   };
 
-  // Create batch actions for mobile view with default values if not provided
-  const defaultBatchActions = [
-    {
-      label: "Export",
-      icon: <FileDownIcon className="h-3.5 w-3.5" />,
-      onClick: () => {
-        const selectedRows = table.getSelectedRowModel().rows.map(row => row.original);
-        navigator.clipboard.writeText(JSON.stringify(selectedRows, null, 2));
-        toast.info("Selected rows copied to clipboard");
-      },
-      hotkey: "alt+e"
-    },
-    {
-      label: "Activate",
-      icon: <UserPlusIcon className="h-3.5 w-3.5" />,
-      onClick: () => {
-        toast.info("Activate selected rows");
-      },
-      hotkey: "alt+a"
-    },
-    {
-      label: "Deactivate",
-      icon: <UserMinusIcon className="h-3.5 w-3.5" />,
-      onClick: () => {
-        toast.info("Deactivate selected rows");
-      },
-      hotkey: "alt+d"
-    },
-    {
-      label: "Delete",
-      icon: <Trash className="h-3.5 w-3.5" />,
-      onClick: () => {
-        if (onDeleteRows) {
-          const selectedRows = table.getSelectedRowModel().rows.map(row => row.original);
-          onDeleteRows(selectedRows);
-          toast.success(`Deleted ${selectedRows.length} ${selectedRows.length === 1 ? "row" : "rows"}`);
-        } else {
-          toast.info("Delete selected rows");
-        }
-      },
-      hotkey: "delete"
-    },
-  ];
-
   // Map custom batch actions
-  const batchActions = mobileBatchActions 
-    ? mobileBatchActions.map(action => ({
-        label: action.label,
-        icon: action.icon,
+  const batchActions = useMemo(() => {
+    const defaultBatchActions = [
+      {
+        label: "Export",
+        icon: <FileDownIcon className="h-3.5 w-3.5" />,
         onClick: () => {
-          const selectedRows = table.getSelectedRowModel().rows
-            .map(row => row.original);
-          return action.onClick(selectedRows);
+          const selectedRows = table.getSelectedRowModel().rows.map(row => row.original);
+          navigator.clipboard.writeText(JSON.stringify(selectedRows, null, 2));
+          toast.info("Selected rows copied to clipboard");
         },
-        hotkey: action.hotkey
-      }))
-    : defaultBatchActions;
+        hotkey: "alt+e"
+      },
+      {
+        label: "Activate",
+        icon: <UserPlusIcon className="h-3.5 w-3.5" />,
+        onClick: () => {
+          toast.info("Activate selected rows");
+        },
+        hotkey: "alt+a"
+      },
+      {
+        label: "Deactivate",
+        icon: <UserMinusIcon className="h-3.5 w-3.5" />,
+        onClick: () => {
+          toast.info("Deactivate selected rows");
+        },
+        hotkey: "alt+d"
+      },
+      {
+        label: "Delete",
+        icon: <Trash className="h-3.5 w-3.5" />,
+        onClick: () => {
+          if (onDeleteRows) {
+            const selectedRows = table.getSelectedRowModel().rows.map(row => row.original);
+            onDeleteRows(selectedRows);
+            toast.success(`Deleted ${selectedRows.length} ${selectedRows.length === 1 ? "row" : "rows"}`);
+          } else {
+            toast.info("Delete selected rows");
+          }
+        },
+        hotkey: "delete"
+      },
+    ];
+    return mobileBatchActions
+      ? mobileBatchActions.map(action => ({
+          label: action.label,
+          icon: action.icon,
+          onClick: () => {
+            const selectedRows = table.getSelectedRowModel().rows.map(row => row.original);
+            return action.onClick(selectedRows);
+          },
+          hotkey: action.hotkey
+        }))
+      : defaultBatchActions;
+  }, [mobileBatchActions, table, onDeleteRows]);
 
   // Handle batch action for both mobile and desktop
   const handleBatchAction = (action: { 

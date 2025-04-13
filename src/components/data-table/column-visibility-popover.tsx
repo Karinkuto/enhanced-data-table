@@ -10,21 +10,27 @@ interface ColumnVisibilityPopoverProps<TData> {
   table: Table<TData>;
 }
 
+import { useMemo, useCallback } from "react";
+
 export function ColumnVisibilityPopover<TData>({ table }: ColumnVisibilityPopoverProps<TData>) {
   const [open, setOpen] = useState(false);
   const columns = table.getAllLeafColumns();
 
   // Optionally, filter out columns that should never be hidden (e.g., id, selection)
   // For now, allow toggling all columns except those with 'enableHiding' === false
-  const toggleableColumns = columns.filter(
-    (col) => (col.columnDef.enableHiding ?? true) && col.getCanHide?.() !== false
+  const toggleableColumns = useMemo(
+    () =>
+      columns.filter(
+        (col) => (col.columnDef.enableHiding ?? true) && col.getCanHide?.() !== false
+      ),
+    [columns]
   );
 
-  const handleShowAll = () => {
+  const handleShowAll = useCallback(() => {
     toggleableColumns.forEach((col) => {
       if (!col.getIsVisible()) col.toggleVisibility(true);
     });
-  };
+  }, [toggleableColumns]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
