@@ -49,22 +49,13 @@ declare module '@tanstack/react-table' {
 /* TODO: Allow both accessorFn and accessorKey */
 export function defineMeta<
   TData,
-  /* Only accessorFn - WORKS */
-  TAccessor extends AccessorFn<TData>,
-  TVal extends ReturnType<TAccessor>,
-  /* Only accessorKey - WORKS */
-  // TAccessor extends DeepKeys<TData>,
-  // TVal extends DeepValue<TData, TAccessor>,
-
-  /* Both accessorKey and accessorFn - BROKEN */
-  /* ISSUE: Won't infer transformOptionFn input type correctly. */
-  // TAccessor extends AccessorFn<TData> | DeepKeys<TData>,
-  // TVal extends TAccessor extends AccessorFn<TData>
-  // ? ReturnType<TAccessor>
-  // : TAccessor extends DeepKeys<TData>
-  // ? DeepValue<TData, TAccessor>
-  // : never,
-  TType extends ColumnDataType,
+  TAccessor extends string | AccessorFn<TData>,
+  TVal = TAccessor extends AccessorFn<TData>
+    ? ReturnType<TAccessor>
+    : TAccessor extends keyof TData
+      ? TData[TAccessor]
+      : never,
+  TType extends ColumnDataType = ColumnDataType
 >(
   accessor: TAccessor,
   meta: Omit<ColumnMeta<TData, TVal>, 'type'> & {
@@ -715,9 +706,9 @@ export function multiOptionFilterFn<TData>(
     return false
   }
 
-  const sanitizedValue = (value as never[]).map((v) =>
-    columnMeta.transformOptionFn(v)
-  )
+  const sanitizedValue = columnMeta.transformOptionFn
+    ? (value as never[]).map((v) => columnMeta.transformOptionFn!(v))
+    : (value as never[]);
 
   return __multiOptionFilterFn(
     sanitizedValue.map((v) => v.value),
