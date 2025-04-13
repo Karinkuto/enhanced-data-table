@@ -10,27 +10,7 @@ import { TableFilterDialog } from "./table-filter-dialog";
 import { Badge } from "@/components/ui/badge";
 import { ColumnVisibilityPopover } from "./column-visibility-popover";
 
-// Local implementation of useIsMobile with 650px breakpoint
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const checkIsMobile = () => {
-      setIsMobile(window.innerWidth <= 650); // Mobile breakpoint at 650px
-    };
-
-    // Initial check
-    checkIsMobile();
-
-    // Add event listener for window resize
-    window.addEventListener("resize", checkIsMobile);
-
-    // Cleanup
-    return () => window.removeEventListener("resize", checkIsMobile);
-  }, []);
-
-  return isMobile;
-}
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 
 interface TableToolbarProps<TData> {
@@ -67,7 +47,7 @@ export function TableToolbar<TData>({
   searchableColumns = [],
   showColumnSelection = true,
 }: TableToolbarProps<TData>) {
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile(650);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [property, setProperty] = useState<string | undefined>(undefined);
   const inputRef = useRef<HTMLInputElement>(null);

@@ -38,6 +38,10 @@ import { Trash } from "lucide-react"
 import { fuzzyFilter } from "@/lib/fuzzy-filter"
 import { FloatingSelectionController } from "./floating-selection-controller"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  multiColumnFilterFn,
+  categoryFilterFn,
+} from "@/lib/filters";
 
 // Extend the ColumnMeta interface with our additional properties
 declare module "@tanstack/react-table" {
@@ -55,44 +59,6 @@ declare module "@tanstack/react-table" {
     category: FilterFn<unknown>
   }
 }
-
-// Create a generic multi-column filter
-export function createMultiColumnFilterFn<T>(): FilterFn<T> {
-  return (row, columnId, filterValue) => {
-    if (!filterValue) return true
-    
-    // If searching all columns
-    if (columnId === "all") {
-      const searchableRowContent = Object.values(row.original as Record<string, unknown>)
-        .filter((val) => typeof val === "string")
-        .join(" ") 
-        .toLowerCase()
-      const searchTerm = (filterValue ?? "").toLowerCase()
-      return searchableRowContent.includes(searchTerm)
-    }
-
-    // If searching a specific column 
-    const value = row.getValue(columnId) as string
-    if (typeof value === "string") {
-      return value.toLowerCase().includes((filterValue ?? "").toLowerCase())
-    }
-    
-    return false
-  }
-}
-
-// Create a generic category filter
-export function createCategoryFilterFn<T>(): FilterFn<T> {
-  return (row, columnId, filterValue: string[]) => {
-    if (!filterValue?.length) return true
-    const value = row.getValue(columnId) as string
-    return filterValue.includes(value)
-  }
-}
-
-// For backward compatibility
-export const multiColumnFilterFn = createMultiColumnFilterFn<unknown>()
-export const categoryFilterFn = createCategoryFilterFn<unknown>()
 
 // Row action type for kebab menu
 export interface RowAction<TData> {
@@ -159,27 +125,7 @@ export interface DataTableProps<TData> {
 // Create a type for the cell to avoid 'any' type
 type DataTableCell<TData> = ReturnType<Row<TData>['getVisibleCells']>[number];
 
-// Simple isMobile hook implementation
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(false);
-  
-  useEffect(() => {
-    const checkIsMobile = () => {
-      setIsMobile(window.innerWidth < 768); // Standard mobile breakpoint
-    };
-    
-    // Initial check
-    checkIsMobile();
-    
-    // Add event listener for window resize
-    window.addEventListener('resize', checkIsMobile);
-    
-    // Cleanup
-    return () => window.removeEventListener('resize', checkIsMobile);
-  }, []);
-  
-  return isMobile;
-}
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 export function DataTable<TData>({
   data,
@@ -202,7 +148,7 @@ export function DataTable<TData>({
   loading = false,
 }: DataTableProps<TData>) {
 
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile(768);
 
   // Controlled/uncontrolled state logic
   // Internal state for client-side mode

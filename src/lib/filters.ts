@@ -973,3 +973,53 @@ function warn(...messages: string[]) {
     console.warn('[◐] [filters]', ...messages)
   }
 }
+
+/**********************************************************************************************************
+ ***** Generic Multi-Column and Category Filter Functions (for DataTable) ******
+ **********************************************************************************************************/
+
+import type { FilterFn } from "@tanstack/react-table";
+
+/**
+ * Returns a filter function that searches across all string values in a row, or a specific column.
+ * Used for global and column search in DataTable.
+ */
+export function createMultiColumnFilterFn<T>(): FilterFn<T> {
+  return (row: Row<T>, columnId: string, filterValue: string) => {
+    if (!filterValue) return true;
+
+    // If searching all columns
+    if (columnId === "all") {
+      const searchableRowContent = Object.values(row.original as Record<string, unknown>)
+        .filter((val) => typeof val === "string")
+        .join(" ")
+        .toLowerCase();
+      const searchTerm = (filterValue ?? "").toLowerCase();
+      return searchableRowContent.includes(searchTerm);
+    }
+
+    // If searching a specific column
+    const value = row.getValue(columnId) as string;
+    if (typeof value === "string") {
+      return value.toLowerCase().includes((filterValue ?? "").toLowerCase());
+    }
+
+    return false;
+  };
+}
+
+/**
+ * Returns a filter function for filtering by category (array of string values).
+ * Used for category filters in DataTable.
+ */
+export function createCategoryFilterFn<T>(): FilterFn<T> {
+  return (row: Row<T>, columnId: string, filterValue: string[]) => {
+    if (!filterValue?.length) return true;
+    const value = row.getValue(columnId) as string;
+    return filterValue.includes(value);
+  };
+}
+
+// Default instances for convenience
+export const multiColumnFilterFn = createMultiColumnFilterFn<unknown>();
+export const categoryFilterFn = createCategoryFilterFn<unknown>();
