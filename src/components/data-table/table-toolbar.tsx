@@ -146,13 +146,31 @@ export function TableToolbar<TData>({
               <div className="flex items-center gap-2">
                 {/* Filter button triggers filter UI */}
                 {isMobile ? (
-                  <TableFilterDialog
-                    table={table}
-                    property={property}
-                    setProperty={setProperty}
-                    open={mobileFilterOpen}
-                    onOpenChange={setMobileFilterOpen}
-                  />
+                  <>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "flex items-center gap-1.5 h-9 font-medium bg-background border shadow-sm px-3 rounded-md",
+                        hasFilters && "bg-accent text-accent-foreground",
+                      )}
+                      onClick={() => setMobileFilterOpen(true)}
+                    >
+                      <Filter className="h-4 w-4" aria-hidden="true" />
+                      <span>Filter</span>
+                      {hasFilters && (
+                        <Badge className="ml-1 bg-primary text-primary-foreground h-5 min-w-5 flex items-center justify-center">
+                          {table.getState().columnFilters.length}
+                        </Badge>
+                      )}
+                    </Button>
+                    <TableFilterDialog
+                      table={table}
+                      property={property}
+                      setProperty={setProperty}
+                      open={mobileFilterOpen}
+                      onOpenChange={setMobileFilterOpen}
+                    />
+                  </>
                 ) : (
                   <TableFilterDialog
                     table={table}
