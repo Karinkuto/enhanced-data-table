@@ -1,12 +1,21 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronsUpDown, Search } from "lucide-react"
+import { Search } from "lucide-react"
+import { useState } from "react"
+import { useMediaQuery } from "@/hooks/use-media-query"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { 
+  Command, 
+  CommandEmpty, 
+  CommandGroup, 
+  CommandInput, 
+  CommandItem, 
+  CommandList 
+} from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
 interface SearchableColumn {
@@ -16,8 +25,8 @@ interface SearchableColumn {
 
 interface SearchCommandProps {
   columns: SearchableColumn[]
-  selectedColumn: string
-  onColumnChange: (column: string) => void
+  selectedColumn?: string
+  onColumnChange?: (column: string) => void
   searchValue: string
   onSearchChange: (value: string) => void
   placeholder?: string
@@ -26,86 +35,103 @@ interface SearchCommandProps {
 
 export function SearchCommand({
   columns,
-  selectedColumn,
+  selectedColumn = "all",
   onColumnChange,
   searchValue,
   onSearchChange,
   placeholder = "Search...",
   showColumnSelection = true,
 }: SearchCommandProps) {
-  const [open, setOpen] = React.useState(false)
-  const selectedColumnLabel = React.useMemo(() => {
-    return columns.find((col) => col.id === selectedColumn)?.label || "All"
-  }, [columns, selectedColumn])
+  const [open, setOpen] = useState(false)
+  const [commandFilter, setCommandFilter] = useState("")
+  const isDesktop = useMediaQuery("(min-width: 768px)")
+
+  // Find the currently selected column
+  const selectedColumnLabel = selectedColumn === "all" 
+    ? "All columns" 
+    : columns.find(col => col.id === selectedColumn)?.label || "All columns"
 
   return (
-    <div className="flex w-full items-center space-x-0">
-      {/* Column selector on the left - only shown if showColumnSelection is true */}
-      {showColumnSelection && (
+    <div className={cn("flex items-center", isDesktop ? "flex-1" : "w-full")}>
+      {showColumnSelection ? (
         <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              role="combobox"
-              aria-expanded={open}
-              className="rounded-r-none border-r-0 relative w-[120px] justify-between"
-            >
-              <span className="line-clamp-1 text-sm">{selectedColumnLabel}</span>
-              <ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-[200px] p-0" align="start">
+          <div className="relative flex-1">
+            <div className="flex h-9 rounded-md border border-input bg-background overflow-hidden">
+              <PopoverTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  className="h-full px-3 py-2 flex items-center justify-between border-r text-sm"
+                  style={{ borderRadius: 0 }}
+                >
+                  {selectedColumnLabel}
+                </Button>
+              </PopoverTrigger>
+              <div className="flex-1 flex items-center pl-2">
+                <Search className="h-4 w-4 text-muted-foreground mr-2" />
+                <Input
+                  placeholder={placeholder}
+                  value={searchValue}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  className="h-full flex-1 border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+              </div>
+            </div>
+          </div>
+          <PopoverContent className="p-0 w-[200px]" align="start">
             <Command>
-              <CommandInput placeholder="Search column..." />
+              <CommandInput 
+                placeholder="Search columns..." 
+                value={commandFilter}
+                onValueChange={setCommandFilter}
+              />
               <CommandList>
-                <CommandEmpty>No column found.</CommandEmpty>
+                <CommandEmpty>No columns found.</CommandEmpty>
                 <CommandGroup>
-                  <CommandItem
-                    value="all"
+                  <CommandItem 
                     onSelect={() => {
-                      onColumnChange("all")
+                      onColumnChange?.("all")
                       setOpen(false)
                     }}
+                    className="flex items-center gap-2"
                   >
-                    <Check className={cn("mr-2 h-4 w-4", selectedColumn === "all" ? "opacity-100" : "opacity-0")} />
-                    All
+                    All columns
                   </CommandItem>
-                  {columns.map((column) => (
-                    <CommandItem
-                      key={column.id}
-                      value={column.id}
-                      onSelect={() => {
-                        onColumnChange(column.id)
-                        setOpen(false)
-                      }}
-                    >
-                      <Check
-                        className={cn("mr-2 h-4 w-4", selectedColumn === column.id ? "opacity-100" : "opacity-0")}
-                      />
-                      {column.label}
-                    </CommandItem>
-                  ))}
+                  {columns
+                    .filter(column => 
+                      column.label.toLowerCase().includes(commandFilter.toLowerCase())
+                    )
+                    .map((column) => (
+                      <CommandItem
+                        key={column.id}
+                        onSelect={() => {
+                          onColumnChange?.(column.id)
+                          setOpen(false)
+                        }}
+                      >
+                        {column.label}
+                      </CommandItem>
+                    ))
+                  }
                 </CommandGroup>
               </CommandList>
             </Command>
           </PopoverContent>
         </Popover>
+      ) : (
+        <div className="relative flex-1">
+          <div className="flex h-9 w-full rounded-md border border-input bg-background overflow-hidden">
+            <div className="flex items-center pl-3">
+              <Search className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <Input
+              placeholder={placeholder}
+              value={searchValue}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="h-full flex-1 border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
+          </div>
+        </div>
       )}
-
-      {/* Search input on the right */}
-      <div className="relative flex-1">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-        <Input
-          type="search"
-          placeholder={placeholder}
-          value={searchValue}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className={cn(
-            "w-full pl-9", 
-            showColumnSelection ? "rounded-l-none" : "rounded-lg"
-          )}
-        />
-      </div>
     </div>
   )
 } 

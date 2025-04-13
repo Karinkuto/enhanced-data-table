@@ -2,13 +2,22 @@
 
 import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
-import { DataTable, DefaultRowActions, createCategoryFilterFn, createMultiColumnFilterFn, type RowAction, type BatchAction } from "@/components/data-table/data-table"
+import { 
+  DataTable, 
+  DefaultRowActions, 
+  // Commented out unused imports
+  // createCategoryFilterFn, 
+  // createMultiColumnFilterFn, 
+  type RowAction, 
+  type BatchAction 
+} from "@/components/data-table/data-table"
 import type { ColumnDef } from "@tanstack/react-table"
 import { cn } from "@/lib/utils"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Edit, Trash, FileText, Copy, FileDown, CheckSquare, UserX } from "lucide-react"
+import { Edit, Trash, FileText, Copy, FileDown, CheckSquare, UserX, CircleDashedIcon, MailIcon, MapPinIcon, BuildingIcon, BriefcaseIcon, CalendarIcon, BarChartIcon, CircleIcon, DollarSignIcon } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { toast } from "sonner"
+import { filterFn, defineMeta } from "@/lib/filters"
 
 type User = {
   id: string
@@ -59,6 +68,37 @@ export default function UsersPage() {
     fetchUsers()
   }, [])
 
+  // Define status options for filtering
+  const STATUS_OPTIONS = [
+    { label: "Active", value: "Active", icon: <CircleIcon className="h-3 w-3 text-green-600" /> },
+    { label: "Inactive", value: "Inactive", icon: <CircleIcon className="h-3 w-3 text-gray-400" /> },
+    { label: "Pending", value: "Pending", icon: <CircleIcon className="h-3 w-3 text-yellow-600" /> },
+  ]
+
+  // Define performance options for filtering
+  const PERFORMANCE_OPTIONS = [
+    { label: "Excellent", value: "Excellent", icon: <CircleIcon className="h-3 w-3 text-green-600" /> },
+    { label: "Good", value: "Good", icon: <CircleIcon className="h-3 w-3 text-blue-600" /> },
+    { label: "Average", value: "Average", icon: <CircleIcon className="h-3 w-3 text-yellow-600" /> },
+    { label: "Poor", value: "Poor", icon: <CircleIcon className="h-3 w-3 text-red-600" /> },
+  ]
+  
+  // Define department options for filtering
+  const DEPARTMENT_OPTIONS = [
+    { label: "Sales", value: "Sales" },
+    { label: "Marketing", value: "Marketing" },
+    { label: "Engineering", value: "Engineering" },
+    { label: "Support", value: "Support" },
+  ]
+  
+  // Define role options for filtering
+  const ROLE_OPTIONS = [
+    { label: "Director", value: "Director" },
+    { label: "Manager", value: "Manager" },
+    { label: "Associate", value: "Associate" },
+    { label: "Specialist", value: "Specialist" },
+  ]
+
   const columns: ColumnDef<User>[] = [
     {
       id: "select",
@@ -85,13 +125,24 @@ export default function UsersPage() {
       accessorKey: "name",
       cell: ({ row }) => <div className="font-medium">{row.getValue("name")}</div>,
       size: 180,
-      filterFn: createMultiColumnFilterFn<User>(),
+      filterFn: filterFn('text'),
+      meta: defineMeta("name", {
+        displayName: "Name",
+        type: "text",
+        icon: CircleDashedIcon,
+      }),
       enableHiding: false,
     },
     {
       header: "Email",
       accessorKey: "email",
       size: 220,
+      filterFn: filterFn('text'),
+      meta: defineMeta("email", {
+        displayName: "Email",
+        type: "text",
+        icon: MailIcon,
+      }),
     },
     {
       header: "Location",
@@ -102,21 +153,47 @@ export default function UsersPage() {
         </div>
       ),
       size: 180,
+      filterFn: filterFn('text'),
+      meta: defineMeta("location", {
+        displayName: "Location",
+        type: "text",
+        icon: MapPinIcon,
+      }),
     },
     {
       header: "Department",
       accessorKey: "department",
       size: 150,
+      filterFn: filterFn('option'),
+      meta: defineMeta("department", {
+        displayName: "Department",
+        type: "option",
+        icon: BuildingIcon,
+        options: DEPARTMENT_OPTIONS,
+      }),
     },
     {
       header: "Role",
       accessorKey: "role",
       size: 150,
+      filterFn: filterFn('option'),
+      meta: defineMeta("role", {
+        displayName: "Role",
+        type: "option",
+        icon: BriefcaseIcon,
+        options: ROLE_OPTIONS,
+      }),
     },
     {
       header: "Join Date",
       accessorKey: "joinDate",
       size: 120,
+      filterFn: filterFn('text'),
+      meta: defineMeta("joinDate", {
+        displayName: "Join Date",
+        type: "text",
+        icon: CalendarIcon,
+      }),
     },
     {
       header: "Performance",
@@ -143,6 +220,13 @@ export default function UsersPage() {
         return <Badge className={badgeClass}>{performance}</Badge>
       },
       size: 120,
+      filterFn: filterFn('option'),
+      meta: defineMeta("performance", {
+        displayName: "Performance",
+        type: "option",
+        icon: BarChartIcon,
+        options: PERFORMANCE_OPTIONS,
+      }),
     },
     {
       header: "Status",
@@ -162,7 +246,13 @@ export default function UsersPage() {
         )
       },
       size: 100,
-      filterFn: createCategoryFilterFn<User>(),
+      filterFn: filterFn('option'),
+      meta: defineMeta("status", {
+        displayName: "Status",
+        type: "option",
+        icon: CircleDashedIcon,
+        options: STATUS_OPTIONS,
+      }),
     },
     {
       header: "Balance",
@@ -176,6 +266,13 @@ export default function UsersPage() {
         return formatted
       },
       size: 120,
+      filterFn: filterFn('number'),
+      meta: defineMeta("balance", {
+        displayName: "Balance",
+        type: "number",
+        icon: DollarSignIcon,
+        max: 10000,
+      }),
     },
     {
       id: "actions",
@@ -339,7 +436,7 @@ export default function UsersPage() {
         onAddItem={handleAddUser}
         addButtonText="Add New"
         searchPlaceholder="Search users..."
-        searchColumnId="name"
+        searchColumnId="all"
         initialPageSize={5}
         rowActions={rowActions}
         searchableColumns={searchableColumns}

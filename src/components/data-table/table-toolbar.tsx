@@ -2,33 +2,36 @@ import type { Table } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { ListFilterIcon, PlusIcon } from "lucide-react";
-import { useState, useEffect } from "react";
-import { toast } from "sonner";
+import { PlusIcon, Filter } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { SearchCommand } from "./search-command";
 import type { SearchableColumn } from "./data-table";
+import { TableFilterDialog } from "./table-filter-dialog";
+import { Badge } from "@/components/ui/badge";
+import { ColumnVisibilityPopover } from "./column-visibility-popover";
 
 // Local implementation of useIsMobile with 650px breakpoint
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
-  
+
   useEffect(() => {
     const checkIsMobile = () => {
       setIsMobile(window.innerWidth <= 650); // Mobile breakpoint at 650px
     };
-    
+
     // Initial check
     checkIsMobile();
-    
+
     // Add event listener for window resize
-    window.addEventListener('resize', checkIsMobile);
-    
+    window.addEventListener("resize", checkIsMobile);
+
     // Cleanup
-    return () => window.removeEventListener('resize', checkIsMobile);
+    return () => window.removeEventListener("resize", checkIsMobile);
   }, []);
-  
+
   return isMobile;
 }
+
 
 interface TableToolbarProps<TData> {
   table: Table<TData>;
@@ -44,8 +47,15 @@ interface TableToolbarProps<TData> {
   showColumnSelection?: boolean;
 }
 
+
+// (Removed: MobileFilterContent and related filter dialog logic)
+
+// Create a better type definition for DialogContent
+// type ExtendedDialogContentProps = React.ComponentProps<typeof DialogContent> & {
+//   hideCloseButton?: boolean;
+// };
+
 export function TableToolbar<TData>({
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   table,
   searchColumnId = "all",
   onSearchColumnChange,
@@ -58,11 +68,37 @@ export function TableToolbar<TData>({
   showColumnSelection = true,
 }: TableToolbarProps<TData>) {
   const isMobile = useIsMobile();
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [property, setProperty] = useState<string | undefined>(undefined);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const hasFilters = table.getState().columnFilters.length > 0;
+
+  // Focus input when property is selected
+  useEffect(() => {
+    if (property && inputRef) {
+      inputRef.current?.focus();
+    }
+  }, [property]);
+
+  // Reset property when mobile drawer closes
+  useEffect(() => {
+    if (!mobileFilterOpen) {
+      setTimeout(() => setProperty(undefined), 300);
+    }
+  }, [mobileFilterOpen]);
+
+  // (Removed: filterContent, FilterDialogContent, and related filter dialog logic)
 
   return (
     <Card className="mb-2 p-1">
       <CardContent className="p-1">
-        <div className={cn("flex flex-col gap-3", isMobile ? "" : "flex-row items-center")}>
+        <div
+          className={cn(
+            "flex flex-col gap-3",
+            isMobile ? "" : "flex-row items-center",
+          )}
+        >
           {/* Search with command */}
           <div className={cn("flex-1", isMobile ? "w-full" : "")}>
             {searchableColumns.length > 0 && (
@@ -78,7 +114,14 @@ export function TableToolbar<TData>({
             )}
           </div>
 
-          <div className={cn("flex items-center", isMobile ? "flex-wrap justify-between w-full gap-2" : "gap-3 ml-auto")}>
+          <div
+            className={cn(
+              "flex items-center",
+              isMobile
+                ? "flex-wrap justify-between w-full gap-2"
+                : "gap-3 ml-auto",
+            )}
+          >
             {/* Add button */}
             {onAddItem && (
               <Button
@@ -93,35 +136,71 @@ export function TableToolbar<TData>({
               </Button>
             )}
 
-            <div className={cn(
-              "flex items-center", 
-              isMobile ? "gap-1 ml-auto" : "gap-2"
-            )}>
-              {/* Filter button (UI only for now) */}
-              <Button
-                variant="outline"
-                className="flex items-center gap-1"
-                onClick={() => toast.info("Filter feature coming soon")}
-              >
-                <ListFilterIcon className="h-4 w-4" aria-hidden="true" />
-                {!isMobile ? "Filter" : ""}
-              </Button>
+            <div
+              className={cn(
+                "flex items-center flex-wrap",
+                isMobile ? "gap-1 ml-auto" : "gap-2",
+              )}
+            >
+              {/* Filter section */}
+              <div className="flex items-center gap-2">
+                {/* Filter button triggers filter UI */}
+                {isMobile ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "flex items-center gap-1.5 h-9 font-medium bg-background border shadow-sm px-3 rounded-md",
+                        hasFilters && "bg-accent text-accent-foreground",
+                      )}
+                      onClick={() => setMobileFilterOpen(true)}
+                    >
+                      <Filter className="h-4 w-4" aria-hidden="true" />
+                      <span>Filter</span>
+                      {hasFilters && (
+                        <Badge className="ml-1 bg-primary text-primary-foreground h-5 min-w-5 flex items-center justify-center">
+                          {table.getState().columnFilters.length}
+                        </Badge>
+                      )}
+                    </Button>
+                    <TableFilterDialog
+                      table={table}
+                      property={property}
+                      setProperty={setProperty}
+                      open={mobileFilterOpen}
+                      onOpenChange={setMobileFilterOpen}
+                    />
+                  </>
+                ) : (
+                  <TableFilterDialog
+                    table={table}
+                    property={property}
+                    setProperty={setProperty}
+                    open={false} // not used for desktop
+                    onOpenChange={() => {}} // not used for desktop
+                  >
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "flex items-center gap-1.5 h-9 font-medium bg-background border shadow-sm px-3 rounded-md",
+                        hasFilters && "bg-accent text-accent-foreground",
+                      )}
+                    >
+                      <Filter className="h-4 w-4" aria-hidden="true" />
+                      <span>Filter</span>
+                      {hasFilters && (
+                        <Badge className="ml-1 bg-primary text-primary-foreground h-5 min-w-5 flex items-center justify-center">
+                          {table.getState().columnFilters.length}
+                        </Badge>
+                      )}
+                    </Button>
+                  </TableFilterDialog>
+                )}
+              </div>
 
-              {/* Columns button (UI only for now) - Hide in mobile view */}
+              {/* Columns button - Hide in mobile view */}
               {!isMobile && (
-                <Button
-                  variant="outline"
-                  className="flex items-center gap-1"
-                  onClick={() => toast.info("Column management coming soon")}
-                >
-                  <div className="grid grid-cols-2 gap-0.5 h-4 w-4">
-                    <div className="bg-current rounded-sm" />
-                    <div className="bg-current rounded-sm" />
-                    <div className="bg-current rounded-sm" />
-                    <div className="bg-current rounded-sm" />
-                  </div>
-                  Columns
-                </Button>
+                <ColumnVisibilityPopover table={table} />
               )}
             </div>
           </div>

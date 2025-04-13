@@ -1,4 +1,3 @@
-import '@tanstack/table-core'
 import type { AccessorFn, Column, Row } from '@tanstack/react-table'
 import type { ColumnMeta, Table } from '@tanstack/react-table'
 import {
@@ -11,6 +10,9 @@ import {
 } from 'date-fns'
 import type { LucideIcon } from 'lucide-react'
 import { intersection, uniq } from './array'
+
+// Re-export Column type for use in other files
+export type { Column }
 
 export type ElementType<T> = T extends (infer U)[] ? U : T
 
@@ -47,22 +49,13 @@ declare module '@tanstack/react-table' {
 /* TODO: Allow both accessorFn and accessorKey */
 export function defineMeta<
   TData,
-  /* Only accessorFn - WORKS */
-  TAccessor extends AccessorFn<TData>,
-  TVal extends ReturnType<TAccessor>,
-  /* Only accessorKey - WORKS */
-  // TAccessor extends DeepKeys<TData>,
-  // TVal extends DeepValue<TData, TAccessor>,
-
-  /* Both accessorKey and accessorFn - BROKEN */
-  /* ISSUE: Won't infer transformOptionFn input type correctly. */
-  // TAccessor extends AccessorFn<TData> | DeepKeys<TData>,
-  // TVal extends TAccessor extends AccessorFn<TData>
-  // ? ReturnType<TAccessor>
-  // : TAccessor extends DeepKeys<TData>
-  // ? DeepValue<TData, TAccessor>
-  // : never,
-  TType extends ColumnDataType,
+  TAccessor extends string | AccessorFn<TData>,
+  TVal = TAccessor extends AccessorFn<TData>
+    ? ReturnType<TAccessor>
+    : TAccessor extends keyof TData
+      ? TData[TAccessor]
+      : never,
+  TType extends ColumnDataType = ColumnDataType
 >(
   accessor: TAccessor,
   meta: Omit<ColumnMeta<TData, TVal>, 'type'> & {
@@ -627,7 +620,8 @@ export function optionFilterFn<TData>(
 
   if (!value) return false
 
-  const columnMeta = filterValue.columnMeta!
+  const columnMeta = filterValue.columnMeta
+  if (!columnMeta) return false
 
   if (typeof value === 'string') {
     return __optionFilterFn(value, filterValue)
@@ -637,7 +631,12 @@ export function optionFilterFn<TData>(
     return __optionFilterFn(value.value, filterValue)
   }
 
-  const sanitizedValue = columnMeta.transformOptionFn!(value as never)
+  if (!columnMeta.transformOptionFn) {
+    console.warn(`No transformOptionFn provided for column ${columnId}`)
+    return false
+  }
+
+  const sanitizedValue = columnMeta.transformOptionFn(value as never)
   return __optionFilterFn(sanitizedValue.value, filterValue)
 }
 
@@ -688,7 +687,8 @@ export function multiOptionFilterFn<TData>(
 
   if (!value) return false
 
-  const columnMeta = filterValue.columnMeta!
+  const columnMeta = filterValue.columnMeta
+  if (!columnMeta) return false
 
   if (isStringArray(value)) {
     return __multiOptionFilterFn(value, filterValue)
@@ -701,9 +701,14 @@ export function multiOptionFilterFn<TData>(
     )
   }
 
-  const sanitizedValue = (value as never[]).map((v) =>
-    columnMeta.transformOptionFn!(v),
-  )
+  if (!columnMeta.transformOptionFn) {
+    console.warn(`No transformOptionFn provided for column ${columnId}`)
+    return false
+  }
+
+  const sanitizedValue = columnMeta.transformOptionFn
+    ? (value as never[]).map((v) => columnMeta.transformOptionFn!(v))
+    : (value as never[]);
 
   return __multiOptionFilterFn(
     sanitizedValue.map((v) => v.value),
